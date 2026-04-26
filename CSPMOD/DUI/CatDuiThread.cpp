@@ -43,7 +43,7 @@ void UIMainThread::OnInit()
     static bool init = false;
     if (init)return;
     init = true;
-
+    
     // 启动杂事处理线程
     misc_thread_.reset(new UIMiscThread(ui::kThreadUser, L"Global Misc Thread"));
     misc_thread_->Start();
@@ -54,6 +54,8 @@ void UIMainThread::OnInit()
     // 如需修改请指定 Startup 最后两个参数
    // std::wstring theme_dir = QPath::GetAppPath();
     //ui::GlobalManager::Startup(theme_dir + L"resources\\", ui::CreateControlCallback(), false);
+
+
 
 
 

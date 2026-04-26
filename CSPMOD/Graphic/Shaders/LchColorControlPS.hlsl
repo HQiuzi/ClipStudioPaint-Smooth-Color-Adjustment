@@ -44,5 +44,23 @@ float4 main(PS_IN psIN) : SV_TARGET
     
     float cFactor = SAMPLER_FROM_TABLE(realHue, L);
     
+    
+
+    
     return float4(LCH_to_sRGB(float3(L, cFactor * d * 200.f, realHue)), alpha);
+    
+    
+    
+    
+    //return float4(LCH_to_sRGB(float3(L, min(cFactor, d * 2)*100.f, realHue)),alpha);
+    
+    //float minC = cFactor;
+    //for (int i = 0; i < 100; i++)
+    //{
+    //    float a= SAMPLER_FROM_TABLE(i*2*3.1415926f/100, L);
+    //    if (minC > a)
+    //        minC = a;
+    //}
+    //return float4(LCH_to_sRGB(float3(L, minC * d * 200.f, realHue)), alpha);
+    //return float4(LCH_to_sRGB(float3(L, d * 200.f, realHue)), alpha);
 }

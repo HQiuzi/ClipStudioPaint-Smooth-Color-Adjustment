@@ -4,25 +4,35 @@
 		xmlns="http://tempuri.org/NIMDUISchema.xsd"
 		>
 	
-	<Class name="helperMenuElement" height="24" padding="20,0,20,0" margin="1,1,1,1"
+	<Class name="helperMenuElement" height="24"  margin="1,1,1,1"
 		   hot_color="#CSPColor_Selected"  fade_hot="false"/>
 	
-	<Class name="helperMenuText" normal_text_color="#CSPColor_Content" font="system_12" valign="center"/>
+	<Class name="helperMenuText"  margin="20,0,20,0" normal_text_color="#CSPColor_Content" font="system_12" valign="center"/>
+	<Class name="checkIcon"  width="16" height="16" bkimage="checkbox_check.svg" halign="left" margin="4,4,4,4" visible="false"/>
 	
 	
 	<MenuListBox class="menu" bkcolor="#CSPColor_PanelBG">
 		<MenuItem class="helperMenuElement" name="colWheelMenu_Rectangle" width="auto">
+			<Control class="checkIcon"/>
 			<Label class="helperMenuText"  text_id="STRID_COLORWHEEL_MENU_RECTANGLE" disabled_text_color="#CSPColor_Separator"  mouse_enabled="false" keyboard_enabled="false"/>
 		</MenuItem>
 		<MenuItem class="helperMenuElement" name="colWheelMenu_Triangle" width="auto">
+			<Control class="checkIcon"/>
 			<Label class="helperMenuText"  text_id="STRID_COLORWHEEL_MENU_TRIANGLE" mouse_enabled="false" keyboard_enabled="false"/>
 		</MenuItem>
 		<Control height="1" margin="10,0,10,0" bkcolor="#CSPColor_Separator"/>
 		<MenuItem class="helperMenuElement" name="colWheelMenu_Pan" width="auto">
+			<Control class="checkIcon"/>
 			<Label class="helperMenuText"  text_id="STRID_COLORWHEEL_MENU_PAN" mouse_enabled="false" keyboard_enabled="false"/>
 		</MenuItem>
 		<MenuItem class="helperMenuElement" name="colWheelMenu_ColorSlider" width="auto">
+			<Control class="checkIcon"/>
 			<Label class="helperMenuText"  text_id="STRID_COLORWHEEL_MENU_COLORSLIDER" mouse_enabled="false" keyboard_enabled="false"/>
+		</MenuItem>
+		<Control height="1" margin="10,0,10,0" bkcolor="#CSPColor_Separator"/>
+		<MenuItem class="helperMenuElement" name="colWheelMenu_SyncVisibility" width="auto">
+			<Control class="checkIcon"/>
+			<Label class="helperMenuText"  text_id="STRID_COLORWHEEL_MENU_SYNCVISIBILITY" mouse_enabled="false" keyboard_enabled="false"/>
 		</MenuItem>
 	</MenuListBox>
 </Window>

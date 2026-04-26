@@ -78,6 +78,7 @@
         /** 鼠标移动
         */
         virtual bool MouseMove(const  ui::EventArgs& msg) override;
+        virtual bool MouseLeave(const  ui::EventArgs& msg) override;
 
         /** 鼠标左键弹起
         */

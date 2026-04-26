@@ -6,7 +6,7 @@
 
 
 
-
+#include"CspData.h"
 #include"TA_HSV.h"
 #include"TA_ColorBalance.h"
 #include"TA_ToneCurve.h"
@@ -134,59 +134,60 @@ else \
 }
 
 
+static bool needSave = false;
 bool AppSettings::Save()
 {
 
-	static bool needSave = false;
 
 	//防止频繁保存，这里用POSTASK的方式进行保存
 	needSave = true;
 	ui::GlobalManager::Instance().Thread().PostTask(ui::kThreadUI, []() {
-		
-		if (!needSave)return;
-		
-		
-		// 
-//构建Json
-		Json::Value root;
+		AppSettings::ins._DoSave();
 
-		//_Save_bool_Type(root["Window"]["Top"], _WindowTop);
+		});
+	return true;
+}
+
+void AppSettings::_DoSave()
+{
+
+	if (!needSave)return;
+
+
+	// 
+//构建Json
+	Json::Value root;
+
+	//_Save_bool_Type(root["Window"]["Top"], _WindowTop);
 #define APPSETTINGS_Save(settingGroup,setting,type,defaultValue) \
 	ins._Save_##type##_Type(root[#settingGroup][#setting],ins._##settingGroup##setting);
-		{ CATTUBER_APPSETTINGS_LIST(APPSETTINGS_Save) }
+	{ CATTUBER_APPSETTINGS_LIST(APPSETTINGS_Save) }
 #undef APPSETTINGS_Save
 
 
-		////特殊处理，如果不保存Lock状态的情况下，保存为false
-		//if (!root["Window"]["LockSave"].asBool())
-		//{
-		//	root["Window"]["Lock"] = false;
-		//}
+	////特殊处理，如果不保存Lock状态的情况下，保存为false
+	//if (!root["Window"]["LockSave"].asBool())
+	//{
+	//	root["Window"]["Lock"] = false;
+	//}
 
-		//将json写入文件
-		//需要判断是否可写
-		std::string settingsFilePath = ins.prefpath;
-		settingsFilePath += _SETTINGS_FILE_NAME;
+	//将json写入文件
+	//需要判断是否可写
+	std::string settingsFilePath = ins.prefpath;
+	settingsFilePath += _SETTINGS_FILE_NAME;
 
-		if (!util::SaveJsonToFile(root, settingsFilePath.c_str()))
-		{
-			SDL_LogError(SDL_LogCategory::SDL_LOG_CATEGORY_APPLICATION, "Save Settings Failed!");
-			return;
-		}
-		SDL_LogInfo(SDL_LogCategory::SDL_LOG_CATEGORY_APPLICATION, "Settings Saved.");
-		needSave = false;
-
-		});
-
-	
-
-	
-
-	return true;
-
+	if (!util::SaveJsonToFile(root, settingsFilePath.c_str()))
+	{
+		SDL_LogError(SDL_LogCategory::SDL_LOG_CATEGORY_APPLICATION, "Save Settings Failed!");
+		return;
+	}
+	SDL_LogInfo(SDL_LogCategory::SDL_LOG_CATEGORY_APPLICATION, "Settings Saved.");
+	needSave = false;
 
 
 }
+
+
 
 const std::vector<std::string>& AppSettings::GetLocalLanguageFullbackVec()
 {
@@ -352,6 +353,15 @@ void AppSettings::_OnFunctionEnableScript_ApplyEffectsChange(const bool& value)
 	}
 }
 
+void AppSettings::_OnFunctionEnableHideNavigatorViewIndicatorChange(const bool& value)
+{
+	if (CspData::GetHideNavigatorViewIndicatorAvaliable())
+	{
+		CspData::SetHideNavigatorViewIndicatorEnabled(value);
+		Save();
+	}
+}
+
 void AppSettings::_OnReplaceColorToleranceChange(const int64_t& value)
 {
 	Save();
@@ -368,6 +378,32 @@ void AppSettings::_OnReplaceColorDisplayNameChange(const std::string& value)
 }
 
 void AppSettings::_OnReplaceColorDisplayIndexChange(const int64_t& value)
+{
+	Save();
+}
+
+
+void AppSettings::_OnColorWheelOpenWhenStartChange(const bool& value)
+{
+	Save();
+}
+
+void AppSettings::_OnColorWheelItemShowChange(const int64_t& value)
+{
+	Save();
+}
+
+void AppSettings::_OnColorWheelWindowRectChange(const SDL_Rect& value)
+{
+	Save();
+}
+
+void AppSettings::_OnColorWheelDisplayNameChange(const std::string& value)
+{
+	Save();
+}
+
+void AppSettings::_OnColorWheelDisplayIndexChange(const int64_t& value)
 {
 	Save();
 }

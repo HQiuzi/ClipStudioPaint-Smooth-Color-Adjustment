@@ -45,6 +45,13 @@ bool AddressTable::LoadFromFile()
         freopen_s(&stream, "CONOUT$", "w", stdout);
         freopen_s(&stream, "CONOUT$", "w", stderr);
         freopen_s(&stream, "CONIN$", "r", stdin);
+
+
+        SDL_LogOutputFunction logf = [](void* userdata, int category, SDL_LogPriority priority, const char* message) {
+            printf(message);
+            printf("\n");
+            };
+        SDL_SetLogOutputFunction(logf,nullptr);
     }
 #endif
    

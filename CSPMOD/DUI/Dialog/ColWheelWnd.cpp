@@ -92,7 +92,36 @@ LRESULT ColWheelWnd::OnCaptureChangedMsg(const ui::NativeMsg& nativeMsg, bool& b
     //if(moused)
     return Window::OnCaptureChangedMsg(nativeMsg, bHandled);
 }
-;
+LRESULT ColWheelWnd::OnSizeMsg(ui::WindowSizeType sizeType, const ui::UiSize& newWindowSize, const ui::NativeMsg& nativeMsg, bool& bHandled)
+{
+    
+    //保存窗口位置信息
+
+    ui::UiRect curWindowRect = this->GetWindowPos(false);
+
+
+    saveRect.x = curWindowRect.left;
+    saveRect.y = curWindowRect.top;
+    saveRect.w = curWindowRect.Width();
+    saveRect.h = curWindowRect.Height();
+
+
+
+    return Window::OnSizeMsg(sizeType, newWindowSize, nativeMsg, bHandled);
+}
+
+LRESULT ColWheelWnd::OnMoveMsg(const ui::UiPoint& ptTopLeft, const ui::NativeMsg& msg, bool& bHandled)
+{
+    ui::UiRect curWindowRect = this->GetWindowPos(false);
+
+
+    saveRect.x = curWindowRect.left;
+    saveRect.y = curWindowRect.top;
+    saveRect.w = curWindowRect.Width();
+    saveRect.h = curWindowRect.Height();
+    return Window::OnMoveMsg(ptTopLeft, msg,bHandled);
+}
+
 
 
 void  ColWheelWnd::setWindowMinSize ()
@@ -194,39 +223,41 @@ void  ColWheelWnd::setWindowMinSize ()
     };
 
 
-void ColWheelWnd::ShowForm()
+void ColWheelWnd::ShowForm(bool needInitColor)
 {
-
-    ui::ColorPicker* pColorPicker = new ui::ColorPicker;
-    pColorPicker->CreateWnd(nullptr, ui::WindowCreateParam(_T("ColorPicker"), true));
-    pColorPicker->ShowWindow(ui::kSW_SHOW_NORMAL);
-
-    //设置选择前的颜色
-    pColorPicker->SetSelectedColor(ui::UiColor(ui::UiColors::White));
-
-    //return;
+    if (pthis)
+    {
+        pthis->ShowWindow(ui::kSW_SHOW_NORMAL);
+        return;
+    }
 
 
-    if (pthis)return;
+    //HWND parent = (HWND)CspData::GetNativeWindowHandle();
+    ////等待主窗口创建
+    //if (!parent||!::IsWindow(parent))
+    //{
+    //    ui::GlobalManager::Instance().Thread().PostDelayedTask(ui::kThreadUI, [] { ColWheelWnd::ShowForm(); }, 100);
+
+    //    return;
+    //}
+
+
     pthis = new ColWheelWnd;
+    pthis->_needInitColor = needInitColor;
     pthis->CreateWnd(nullptr,ui::WindowCreateParam(L"CSPMOD Color Picker",true));
 
     if (pthis->IsWindow())
     {
-        HWND child = pthis->NativeWnd()->GetHWND();
 
-
-        HWND parent =(HWND) CspData::GetNativeWindowHandle();
-        ::SetWindowLongPtr(child, GWLP_HWNDPARENT, (LONG_PTR)parent);
 
         pthis->ShowWindow(ui::kSW_SHOW_NORMAL);
 
 
 
         //设置窗口位置
-        SDL_Rect windowRect = AppSettings::GetReplaceColorWindowRect();
-        std::string displayName= AppSettings::GetReplaceColorDisplayName();
-        int64_t displayIndex=AppSettings::GetReplaceColorDisplayIndex();
+        SDL_Rect windowRect = AppSettings::GetColorWheelWindowRect();
+        std::string displayName= AppSettings::GetColorWheelDisplayName();
+        int64_t displayIndex=AppSettings::GetColorWheelDisplayIndex();
         int displayCount=0;
         SDL_DisplayID* displays= SDL_GetDisplays(&displayCount);
         SDL_DisplayID targetDisplayID = 0;
@@ -254,6 +285,9 @@ void ColWheelWnd::ShowForm()
         }
         SDL_Rect targetDisplayRect = { 0,0,1920,1080 };
         SDL_GetDisplayBounds(targetDisplayID,&targetDisplayRect);
+
+        if (windowRect.w < 50)windowRect.w = 50;
+        if (windowRect.h < 50)windowRect.h = 50;
         windowRect.x += targetDisplayRect.x;
         windowRect.y += targetDisplayRect.y;
         SDL_GetDisplayUsableBounds(targetDisplayID,&targetDisplayRect);
@@ -271,6 +305,7 @@ void ColWheelWnd::ShowForm()
         if (windowRect.w != 0)
         {
             ui::UiPadding shadowPadding= pthis->GetCurrentShadowCorner();
+            bool result=
             pthis->MoveWindow(windowRect.x- shadowPadding.left, windowRect.y-shadowPadding.top, 
                 windowRect.w+shadowPadding.right+shadowPadding.left,
                 windowRect.h+shadowPadding.top+shadowPadding.bottom , 
@@ -279,7 +314,11 @@ void ColWheelWnd::ShowForm()
         }
 
 
-
+        //先移动再设置？
+        HWND child = pthis->NativeWnd()->GetHWND();
+        //HWND parent =(HWND) CspData::GetNativeWindowHandle();
+        HWND parent = (HWND)CspData::GetNativeWindowHandle();
+        ::SetWindowLongPtr(child, GWLP_HWNDPARENT, (LONG_PTR)parent);
 
 
 
@@ -309,7 +348,8 @@ ColWheelWnd::ColWheelWnd()
 
 ColWheelWnd::~ColWheelWnd()
 {
-
+    //这个会调用，但不会调用其他东西... 因为收到的消息直接是finalmessage了
+    SDL_Log("~ColWheelWnd()");
 }
 
 std::wstring ColWheelWnd::GetSkinFolder()
@@ -407,46 +447,64 @@ void ColWheelWnd::OnInitWindow()
     edit_vlch_H->AttachTextChanged(UiBind(&ColWheelWnd::OnSliderValueTextChange, this, std::placeholders::_1));
 
 
+    //根据系统设置设置显示隐藏
+
+    int64_t itemShowState = AppSettings::GetColorWheelItemShow();
+    if (itemShowState & 0x1|| itemShowState&(1<<1))
+    {
+        colorControl_Primary->SetVisible(true);
+        if (itemShowState & 0x1)
+            colorControl_Primary->SetWheelType(LchColorControl_Primary::WheelType_Rectangle);
+        else
+            colorControl_Primary->SetWheelType(LchColorControl_Primary::WheelType_Triangle);
+    }
+    else
+    {
+        colorControl_Primary->SetVisible(false);
+    }
+
+     colorControl->SetVisible(bool(itemShowState & (1 << 2)));
+     sliderContainer->SetVisible(bool(itemShowState & (1 << 3)));
     setWindowMinSize();
 
 
 
+    if (_needInitColor)
+    {
+        //颜色初始化
+        Color96 mainPaintColor;
+        CspColorTable::GetMainPaintColor(&mainPaintColor);
+        float r = static_cast<float>(mainPaintColor.R / double(UINT32_MAX));
+        float g = static_cast<float>(mainPaintColor.G / double(UINT32_MAX));
+        float b = static_cast<float>(mainPaintColor.B / double(UINT32_MAX));
+        float mainL, mainC, mainH;
+        CSPMOD_ColorConvert::RGB2Lch(r, g, b, &mainL, &mainC, &mainH);
+        mainH = CSPMOD_ColorConvert::LCHH2UIH(mainH);
+        colorBlock->SetMainColor(r, g, b);
+
+        Color96 subPaintColor;
+        CspColorTable::GetSubPaintColor(&subPaintColor);
+        r = static_cast<float>(subPaintColor.R / double(UINT32_MAX));
+        g = static_cast<float>(subPaintColor.G / double(UINT32_MAX));
+        b = static_cast<float>(subPaintColor.B / double(UINT32_MAX));
+        float subL, subC, subH;
+        CSPMOD_ColorConvert::RGB2Lch(r, g, b, &subL, &subC, &subH);
+        subH = CSPMOD_ColorConvert::LCHH2UIH(subH);
+        colorBlock->SetSubColor(r, g, b);
+        LCH_L = mainL;
+        LCH_C = mainC;
+        LCH_H = mainH;
+        {
+
+            colorControl->SetLCHrgb(LCH_L, LCH_C, LCH_H);
+            colorControl_Primary->SetLCHrgb(LCH_L, LCH_C, LCH_H);
 
 
-    //颜色初始化
-    Color96 mainPaintColor;
-     CspColorTable::GetMainPaintColor(&mainPaintColor);
-     float r = static_cast<float>(mainPaintColor.R / double(UINT32_MAX));
-     float g = static_cast<float>(mainPaintColor.G / double(UINT32_MAX));
-     float b = static_cast<float>(mainPaintColor.B / double(UINT32_MAX));
-     float mainL, mainC, mainH;
-     CSPMOD_ColorConvert::RGB2Lch(r,g,b,&mainL,&mainC,&mainH);
-     mainH = CSPMOD_ColorConvert::LCHH2UIH(mainH);
-     colorBlock->SetMainColor(r,g,b);
-
-     Color96 subPaintColor;
-     CspColorTable::GetSubPaintColor(&subPaintColor);
-      r = static_cast<float>(subPaintColor.R / double(UINT32_MAX));
-      g = static_cast<float>(subPaintColor.G / double(UINT32_MAX));
-      b = static_cast<float>(subPaintColor.B / double(UINT32_MAX));
-      float subL, subC, subH;
-      CSPMOD_ColorConvert::RGB2Lch(r, g, b, &subL, &subC, &subH);
-      subH = CSPMOD_ColorConvert::LCHH2UIH(subH);
-      colorBlock->SetSubColor(r,g,b);
-      LCH_L = mainL;
-      LCH_C = mainC;
-      LCH_H = mainH;
-      {
-
-          colorControl->SetLCHrgb(LCH_L, LCH_C, LCH_H);
-          colorControl_Primary->SetLCHrgb(LCH_L, LCH_C, LCH_H);
-
-
-          edit_vlch_L->SetTextNoEvent(std::to_wstring((int)SDL_round(LCH_L)));
-          edit_vlch_C->SetTextNoEvent(std::to_wstring((int)SDL_round(LCH_C)));
-          edit_vlch_H->SetTextNoEvent(std::to_wstring((int)SDL_round(LCH_H)));
-      }
-
+            edit_vlch_L->SetTextNoEvent(std::to_wstring((int)SDL_round(LCH_L)));
+            edit_vlch_C->SetTextNoEvent(std::to_wstring((int)SDL_round(LCH_C)));
+            edit_vlch_H->SetTextNoEvent(std::to_wstring((int)SDL_round(LCH_H)));
+        }
+    }
 }
 
 
@@ -535,22 +593,22 @@ bool ColWheelWnd::OnButtonClick(const ui::EventArgs& args)
         this->CloseWnd();
         return true;
     }
-    if(controlName==L"windowMenu")
+    if (controlName == L"windowMenu")
     {
         //菜单
 
 
         //ui::UiPoint p = args.ptMouse;
-        ui::UiRect senderRect=args.GetSender()->GetRect();
+        ui::UiRect senderRect = args.GetSender()->GetRect();
 
         ui::Menu* menu = new ui::Menu(this);
         menu->SetSkinFolder(L"cspHelper_default");
         DString xml(L"ColWheelWndMenu.xml");
 
-        ui::UiRect windowRect= this->GetWindowPos(true);
+        ui::UiRect windowRect = this->GetWindowPos(true);
         //p.x += windowRect.left;
         //p.y += windowRect.top;
-        menu->ShowMenu(xml, { windowRect.left+ senderRect.left+4,windowRect.top+ senderRect .bottom});
+        menu->ShowMenu(xml, { windowRect.left + senderRect.left + 4,windowRect.top + senderRect.bottom });
         //menu->ShowMenu(xml, { p.x - 10,p.y + 4 });
 
 
@@ -559,6 +617,20 @@ bool ColWheelWnd::OnButtonClick(const ui::EventArgs& args)
 
         ui::MenuItem* colWheelMenu_Pan = dynamic_cast<ui::MenuItem*>(menu->FindControl(L"colWheelMenu_Pan"));
         ui::MenuItem* colWheelMenu_ColorSlider = dynamic_cast<ui::MenuItem*>(menu->FindControl(L"colWheelMenu_ColorSlider"));
+
+        ui::MenuItem* colWheelMenu_SyncVisibility = dynamic_cast<ui::MenuItem*>(menu->FindControl(L"colWheelMenu_SyncVisibility"));
+
+
+
+        //设置选中图标的显隐
+        colWheelMenu_Rectangle->GetItemAt(0)->SetVisible(
+            colorControl_Primary->IsVisible()&& colorControl_Primary->GetWheelType()==LchColorControl_Primary::WheelType_Rectangle);
+        colWheelMenu_Triangle->GetItemAt(0)->SetVisible(
+            colorControl_Primary->IsVisible()&& colorControl_Primary->GetWheelType()==LchColorControl_Primary::WheelType_Triangle);
+        colWheelMenu_Pan->GetItemAt(0)->SetVisible(colorControl->IsVisible());
+        colWheelMenu_ColorSlider->GetItemAt(0)->SetVisible(sliderContainer->IsVisible());
+        colWheelMenu_SyncVisibility->GetItemAt(0)->SetVisible(syncVisibility);
+
 
         ui::UiSize sizeMax(9999, 9999);
         int32_t maxW = 0;
@@ -581,11 +653,18 @@ bool ColWheelWnd::OnButtonClick(const ui::EventArgs& args)
             int32_t curW = colWheelMenu_ColorSlider->EstimateSize(sizeMax).cx.GetInt32();
             if (curW > maxW)maxW = curW;
         }
+        {
+            int32_t curW = colWheelMenu_SyncVisibility->EstimateSize(sizeMax).cx.GetInt32();
+            if (curW > maxW)maxW = curW;
+        }
 
         colWheelMenu_Rectangle->SetFixedWidth(ui::UiFixedInt(maxW), true, false);
         colWheelMenu_Triangle->SetFixedWidth(ui::UiFixedInt(maxW), true, false);
         colWheelMenu_Pan->SetFixedWidth(ui::UiFixedInt(maxW), true, false);
         colWheelMenu_ColorSlider->SetFixedWidth(ui::UiFixedInt(maxW), true, false);
+        colWheelMenu_SyncVisibility->SetFixedWidth(ui::UiFixedInt(maxW), true, false);
+
+
 
 
 
@@ -601,7 +680,7 @@ bool ColWheelWnd::OnButtonClick(const ui::EventArgs& args)
                     //减小窗口高度
                     int fixHeight = pthis->colorControl_Primary->GetRect().Height();
                     ui::UiRect windowRect = pthis->GetWindowPos(true);
-                    
+
 
                     pthis->colorControl_Primary->SetVisible(false);
 
@@ -611,7 +690,7 @@ bool ColWheelWnd::OnButtonClick(const ui::EventArgs& args)
                 }
                 else
                 {
-                    
+
                     pthis->colorControl_Primary->SetWheelType(LchColorControl_Primary::WheelType::WheelType_Rectangle);
                     if (!pthis->colorControl_Primary->IsVisible())
                     {
@@ -620,7 +699,7 @@ bool ColWheelWnd::OnButtonClick(const ui::EventArgs& args)
                         {
                             ui::UiRect windowRect = pthis->GetWindowPos(true);
                             pthis->Resize(windowRect.Width(),
-                                windowRect.Height()+ pthis->colorControl->GetRect().Height(),true,true);
+                                windowRect.Height() + pthis->colorControl->GetRect().Height(), true, true);
                         }
                         else
                         {
@@ -707,7 +786,7 @@ bool ColWheelWnd::OnButtonClick(const ui::EventArgs& args)
                         pthis->Resize(windowRect.Width(),
                             windowRect.Height() + windowRect_noshadow.Width(), true, true);
                     }
-                    
+
                     pthis->colorControl->SetVisible(true);
                     setWindowMinSize();
                 }
@@ -724,7 +803,7 @@ bool ColWheelWnd::OnButtonClick(const ui::EventArgs& args)
 
 
                     pthis->Resize(windowRect.Width(),
-                        windowRect.Height()- control->GetRect().Height(), true, true);
+                        windowRect.Height() - control->GetRect().Height(), true, true);
 
 
                 }
@@ -739,7 +818,11 @@ bool ColWheelWnd::OnButtonClick(const ui::EventArgs& args)
                 }
                 return true;
             });
-
+        colWheelMenu_SyncVisibility->AttachClick(
+            [](const ui::EventArgs&)->bool {
+                pthis->syncVisibility=!pthis->syncVisibility;
+                return true;
+            });
 
     }
     return true;
@@ -918,7 +1001,7 @@ bool ColWheelWnd::OnColorSelect(const ui::EventArgs& args)
 
 
 
-void ColWheelWnd::OnCloseWindow()
+void ColWheelWnd::OnPreCloseWindow()
 {
     if (pthis->sliderContainer->GetItemIndex(pthis->colorBlock) != ui::Box::InvalidIndex)
     {
@@ -934,8 +1017,49 @@ void ColWheelWnd::OnCloseWindow()
     }
     if (colorBlock)delete colorBlock;
     colorBlock = nullptr;
+
+    {
+        AppSettings::SetColorWheelOpenWhenStart(false);
+        SavePos();
+    }
+
+
+
     pthis = nullptr;
+    __super::OnPreCloseWindow();
     //pthis = nullptr;
+}
+
+void ColWheelWnd::SavePos()
+{
+    //保存窗口位置信息
+
+    
+    int displayCount = 0;
+    SDL_DisplayID* displayids = SDL_GetDisplays(&displayCount);
+
+    auto _saveRect = saveRect;
+    SDL_DisplayID targetDisplay = SDL_GetDisplayForRect(&_saveRect);
+    int displayIndex = 0;
+    for (; displayIndex < displayCount; displayIndex++)
+    {
+        if (targetDisplay == displayids[displayIndex])
+        {
+            break;
+        }
+    }
+    SDL_Rect targetDisplayBounds = { 0,0,1920,1080 };
+    SDL_GetDisplayBounds(targetDisplay, &targetDisplayBounds);
+    //计算屏幕相关坐标
+    _saveRect.x -= targetDisplayBounds.x;
+    _saveRect.y -= targetDisplayBounds.y;
+    std::string displayName = SDL_GetDisplayName(targetDisplay);
+
+    AppSettings::SetColorWheelDisplayName(displayName);
+    AppSettings::SetColorWheelDisplayIndex(displayIndex);
+    AppSettings::SetColorWheelWindowRect(_saveRect);
+    SDL_free(displayids);
+
 }
 
 ui::Control* ColWheelWnd::CreateControl(const DString& strClass)

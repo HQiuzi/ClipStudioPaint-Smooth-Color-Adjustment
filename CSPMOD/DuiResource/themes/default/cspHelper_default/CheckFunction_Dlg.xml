@@ -101,6 +101,13 @@
 				<Control class="CF_SupportedIcon" name="supportedIcon_applyeffects"/>
 				<CheckBox class="CF_Checkbox_dark" name="checkBox_applyeffects"/>
 			</HBox>
+			<Control class="CF_Separator"/>
+			<HBox height="auto">
+				<Label class="CF_ItemLable" text_id="STRID_CHECKFUNCTIONS_HIDENAVIGATORVIEWINDICATOR"/>
+				<Control />
+				<Control class="CF_SupportedIcon" name="supportedIcon_hideNavigatorViewIndicator"/>
+				<CheckBox class="CF_Checkbox_dark" name="checkBox_hideNavigatorViewIndicator"/>
+			</HBox>
 		</VBox>
 		
 		<!--提示标签-->

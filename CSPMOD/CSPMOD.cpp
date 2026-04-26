@@ -11,7 +11,7 @@
 #include"CspData.h"
 #include"LayerObject.h"
 #include"CSPHelper.h"
-
+#include"DUI/Dialog/ColWheelWnd.h"
 
 #include"duilib/third_party/libudis86/udis86.h"
 #include"DUI/CatDuiThread.h"
@@ -20,8 +20,7 @@
 
 void CSPMOD::OnAttachCSP( uintptr_t moduleHandle)
 {
-
-	std::cout << "OnAttachCSP" << std::endl;
+	SDL_Log("OnAttachCSP");
 	//abort();
 	//SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "CSPMOD Error", "No Version Info in CSPAddressTable.json", nullptr);
 
@@ -35,6 +34,13 @@ void CSPMOD::OnAttachCSP( uintptr_t moduleHandle)
 	bool initResult=SDL_Init(SDL_INIT_VIDEO);
 	ASSERT(initResult &&"SDL Video Init Failed!");
 
+	//38CAC74
+	//测试UDM的代码
+//#if 1
+//	uint8_t skipUDMDEBUG[] = {0xB8,0x00,0x00 ,0x00 ,0x00 ,0x90};
+//	void* targetPos= (void*)(baseAttr + 0x170A79);
+//	CSPMOD::CodePatch(targetPos, skipUDMDEBUG,sizeof(skipUDMDEBUG));
+//#endif
 
 	UIMainThread::Start();
 
@@ -76,13 +82,36 @@ void CSPMOD::OnAttachCSP( uintptr_t moduleHandle)
 
 
 
-
+}
+static bool processStarted = false;
+void CSPMOD::OnMainWindowStart()
+{
+	//一些主窗口运行后的启动项
+	if (AppSettings::GetColorWheelOpenWhenStart())
+	{
+		ColWheelWnd::ShowForm();
+	}
+	ui::GlobalManager::Instance().Thread().PostTask(ui::kThreadUI, []() {processStarted = true; });
 
 }
 
 void CSPMOD::OnDetachCSP()
 {
-	std::cout << "OnDetachCSP" << std::endl;
+	if (processStarted&& ui::GlobalManager::Instance().Thread().GetCurrentThreadIdentifier() == ui::kThreadUI)
+	{
+		processStarted = false;
+		//关闭所有UI资源
+		bool needSave = false;
+		if (ColWheelWnd::GetCurrentForm())
+		{
+			AppSettings::SetColorWheelOpenWhenStart(true);
+			ColWheelWnd::GetCurrentForm()->SavePos();
+			needSave = true;
+		}
+		if(needSave)
+			AppSettings::GetIns()._DoSave();
+		SDL_Log("OnDetachCSP");
+	}
 }
 
 void CSPMOD::CodePatch(void* targetAddr, void* data, size_t datasize)

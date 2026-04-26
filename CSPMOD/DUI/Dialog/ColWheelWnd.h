@@ -14,7 +14,7 @@ class ColWheelWnd : public ui::WindowImplBase
 {
 	static inline ColWheelWnd* pthis = nullptr;
 public:
-	static void ShowForm();
+	static void ShowForm(bool needInitColor = true);
 	static void HideForm();
 	static ColWheelWnd* GetCurrentForm() { return pthis; };
 
@@ -38,7 +38,8 @@ public:
 	 * 收到 WM_CREATE 消息时该函数会被调用，通常做一些控件初始化的操作
 	 */
 	virtual void OnInitWindow() override;
-	virtual void OnCloseWindow()override;
+	virtual void OnPreCloseWindow()override;
+	void SavePos();
 
 	virtual ui::Control* CreateControl(const DString& strClass) override;
 
@@ -48,6 +49,9 @@ public:
 	void SetColor(float r,float g,float b);
 	void SetColorType(CspColorTable::PaintColorType type);
 	void SetTypeColor(CspColorTable::PaintColorType type, const struct Color96* col96);
+
+	bool IsSyncVisibility() { return syncVisibility; };
+
 
 private:
 	bool OnButtonClick(const ui::EventArgs& args);
@@ -64,11 +68,21 @@ private:
 
 	//监听Capture丢失的信息
 	virtual LRESULT OnCaptureChangedMsg(const ui::NativeMsg& nativeMsg, bool& bHandled) override;
+	//监听大小位置改变
+	virtual LRESULT OnSizeMsg(ui::WindowSizeType sizeType, const ui::UiSize& newWindowSize, const ui::NativeMsg& nativeMsg, bool& bHandled) override;
+	virtual LRESULT OnMoveMsg(const ui::UiPoint& ptTopLeft, const ui::NativeMsg& /*nativeMsg*/, bool& bHandled)override;
+	
+	//监听窗口关闭的信息
+
+	//virtual LRESULT OnWindowCloseMsg(uint32_t wParam, const ui::NativeMsg& nativeMsg, bool& bHandled)override;
 
 
+
+	bool _needInitColor = true;;
+	bool syncVisibility = true;
 	bool isSetColSelf = false;//增加状态防止主动设置CSP颜色时又反馈进DUI里
 
-
+	inline static SDL_Rect saveRect = {};
 	//参数
 	float LCH_L=50.F;
 	float LCH_C=50.F;

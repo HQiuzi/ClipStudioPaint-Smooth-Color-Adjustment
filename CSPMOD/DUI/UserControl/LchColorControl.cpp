@@ -258,6 +258,7 @@ using namespace ui;
         else
         {
             bool isInWheel = false;
+            bool isInCurWindow = false;
             {
                 UiRect rect = GetRect();
                 auto pCenter = rect.Center();
@@ -268,8 +269,13 @@ using namespace ui;
                 int r = 4 + m_spBitmap->GetWidth() / 2;
                 isInWheel = (distance2 <= int(r * r));
             }
+            {
+                POINT currenCursorPos = {};
+                ::GetCursorPos(&currenCursorPos);
+                isInCurWindow = GetWindow()->GetWindowHandle() == ::WindowFromPoint(currenCursorPos);
 
-            if (isInWheel) {
+            }
+            if (isInWheel && isInCurWindow) {
                 ui::GlobalManager::Instance().Cursor().SetImageCursor(GetWindow(), ui::FilePath(L"Eyedropper.cur"));
                 SetMouseCapture(true);
             }

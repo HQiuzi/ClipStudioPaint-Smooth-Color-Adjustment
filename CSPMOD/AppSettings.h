@@ -21,10 +21,16 @@ typedef std::string _CatString;
     F(FunctionEnable,ToneCurve,bool,true) \
     F(FunctionEnable,TimeLapseExport,bool,true) \
     F(FunctionEnable,Script_ApplyEffects,bool,true) \
+    F(FunctionEnable,HideNavigatorViewIndicator,bool,false) \
     F(ReplaceColor,Tolerance,int64_t,50) \
     F(ReplaceColor,WindowRect,SDL_Rect,_defalutReplaceWindowRect)\
     F(ReplaceColor,DisplayName,_CatString,"PrimaryMonitor")\
-    F(ReplaceColor,DisplayIndex,int64_t,0)
+    F(ReplaceColor,DisplayIndex,int64_t,0)\
+    F(ColorWheel,OpenWhenStart,bool,false)\
+    F(ColorWheel,ItemShow,int64_t,(1+(1<<2)+(1<<3)))\
+    F(ColorWheel,WindowRect,SDL_Rect,_defalutReplaceWindowRect)\
+    F(ColorWheel,DisplayName,_CatString,"PrimaryMonitor")\
+    F(ColorWheel,DisplayIndex,int64_t,0)
 
 //MouseInputArea使用字符串，需要处理显示器名相同的情况
 //有非默认加载写入行为的
@@ -52,7 +58,7 @@ public:
     ~AppSettings();
     void Load();
     bool Save();
-
+    void _DoSave();
 
     static const std::vector<std::string>& GetLocalLanguageFullbackVec();
 

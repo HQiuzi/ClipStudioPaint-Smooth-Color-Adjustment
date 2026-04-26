@@ -25,11 +25,21 @@ public:
 	//获取CSP主窗口
 	static uintptr_t GetNativeWindowHandle();
 
-
+	static bool GetHideNavigatorViewIndicatorAvaliable() { return navigatorRectPosConvertCodeAddr; };
+	static void SetHideNavigatorViewIndicatorEnabled(bool b);
 
 private:
+
+	static int64_t Hook_OnSetPanelsShowStates(const void* object, uintptr_t showStates);//1表示显示，3表示隐藏，应该是第二bit控制
+	static inline int64_t(*orig_OnSetPanelsShowStates)(const void* object, uintptr_t showStates) = NULL;
+
+
+
 	static inline void* curCanvasSizeBaseAddr = nullptr;
 	static inline void* nativeWindowBaseAddr = nullptr;
+	static inline void* onSetPanelsShowStates = nullptr;//TAB键控制界面显隐时//5.0.0//0000000141DF2630
+
+	static inline void* navigatorRectPosConvertCodeAddr = nullptr;
 
 
 	static inline std::map<std::string, std::string> strdata;

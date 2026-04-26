@@ -373,6 +373,7 @@ const constexpr float  hueCircleLight = 66.f;
             {
                 bool isInHueCircle = false;
                 bool isInWheel = false;
+                bool isInCurWindow = false;
                 {
                     float mPosInRectX = msg.ptMouse.x - rcHueCircle.left + 0.5f;
                     float mPosInRectY = msg.ptMouse.y - rcHueCircle.top + 0.5f;
@@ -422,8 +423,14 @@ const constexpr float  hueCircleLight = 66.f;
                         ASSERT(false);
                     }
                 }
-
-                if (isInWheel) {
+                isInCurWindow;
+                {
+                    POINT currenCursorPos = {};
+                    ::GetCursorPos(&currenCursorPos);
+                    isInCurWindow= GetWindow()->GetWindowHandle() == ::WindowFromPoint(currenCursorPos);
+                
+                }
+                if (isInWheel&& isInCurWindow) {
                     ui::GlobalManager::Instance().Cursor().SetImageCursor(GetWindow(), ui::FilePath(L"Eyedropper.cur"));
                     SetMouseCapture(true);
                 }
@@ -432,6 +439,15 @@ const constexpr float  hueCircleLight = 66.f;
 
             }
         }
+
+        return bRet;
+    }
+
+    bool LchColorControl_Primary::MouseLeave(const ui::EventArgs& msg)
+    {
+        bool bRet = BaseClass::MouseLeave(msg);
+        //SDL_Log("MouseLeave");
+
 
         return bRet;
     }

@@ -12,10 +12,19 @@ void CspData::Init()
 {
 	curCanvasSizeBaseAddr = AddressTable::GetAddress("CSPInfo_CanvasSize");
 	nativeWindowBaseAddr = AddressTable::GetAddress("CSPInfo_NativeWindowHandle");
+	 
 
 
+	//onSetPanelsShowStates= (void*)0X000000141DF2630;
+	onSetPanelsShowStates= AddressTable::GetAddress("CSPInfo_OnSetPanelShowStates_Func");
+
+	navigatorRectPosConvertCodeAddr = AddressTable::GetAddress("CSPNavigator_GetRectPos_CodeAddr");
 
 
+	if (onSetPanelsShowStates)
+	{
+		CSPMOD::Hook(onSetPanelsShowStates, Hook_OnSetPanelsShowStates, (void**)&orig_OnSetPanelsShowStates);
+	}
 
 
 
@@ -61,11 +70,87 @@ const char* CspData::GetStrData(const char* key, const char* _default)
 
 uintptr_t CspData::GetNativeWindowHandle()
 {
-	if (nativeWindowBaseAddr)
+	if (CSPMOD::IsPtrValid(nativeWindowBaseAddr))
 	{
 		return *(uintptr_t*)nativeWindowBaseAddr;
 	}
 	return 0;
+}
+
+void CspData::SetHideNavigatorViewIndicatorEnabled(bool b)
+{
+	if (navigatorRectPosConvertCodeAddr)
+	{
+		static uint8_t origPatchData[7+ 5+10+5    +5+10+5    +5+10+4+   5];
+		static bool  origPatchDataFilled = false;
+
+
+		if (!origPatchDataFilled)
+		{
+			memcpy(origPatchData, navigatorRectPosConvertCodeAddr, sizeof(origPatchData));
+			origPatchDataFilled = true;
+		}
+
+
+		if (b)
+		{
+			uint8_t newCode[sizeof(origPatchData)];
+			memcpy(newCode, origPatchData,sizeof(origPatchData));
+			//目标代码中含有几个函数调用，它们的返回值是导航器红框坐标点
+			//将E8 xx xx xx xx（CALL *****）改为 mov rax,0xFFFFFFFFFFFFFFFF以使红框坐标均为(-1,-1)，这样就不会绘制红框了
+			//见AddressGenerator_CSPData.cpp
+			uint8_t movRaxF[7] = {0x48,0xC7,0xC0, 0xFF,0xFF,0xFF,0xFF };
+			uint8_t replaceCall[5] = {0x90,0x90,0x90, 0x90,0x90};
+			memcpy(newCode, movRaxF, sizeof(movRaxF));
+
+			memcpy(newCode + 7, replaceCall, sizeof(replaceCall));
+			memcpy(newCode + 7 +5+10+5, replaceCall, sizeof(replaceCall));
+			memcpy(newCode + 7 +5+10+5 +5+10+5, replaceCall, sizeof(replaceCall));
+			memcpy(newCode + 7 +5+10+5 +5+10+5 +5+10+4, replaceCall, sizeof(replaceCall));
+
+
+			CSPMOD::CodePatch(navigatorRectPosConvertCodeAddr, newCode, sizeof(newCode));
+
+		}
+		else
+		{
+			CSPMOD::CodePatch(navigatorRectPosConvertCodeAddr, origPatchData, sizeof(origPatchData));
+
+
+
+		}
+
+
+
+
+
+
+	}
+}
+
+int64_t CspData::Hook_OnSetPanelsShowStates(const void* object, uintptr_t showStates)
+{	
+	//这个可以作为启动的标识？
+	//草为什么回看代码这hook的目标函数只有1个入参？
+
+	static bool mainWindowStart = false;
+	if (!mainWindowStart)
+	{
+		ui::GlobalManager::Instance().Thread().PostTask(ui::kThreadUI, [] {CSPMOD::OnMainWindowStart(); });
+		mainWindowStart = true;
+	}
+	bool showPanels = !bool(showStates & 0x2);
+	if (showPanels)
+	{
+		if (ColWheelWnd::GetCurrentForm()&& ColWheelWnd::GetCurrentForm()->IsSyncVisibility())
+			ColWheelWnd::GetCurrentForm()->ShowWindow(ui::ShowWindowCommands::kSW_SHOW_NA);
+	}
+	else
+	{
+		if (ColWheelWnd::GetCurrentForm() && ColWheelWnd::GetCurrentForm()->IsSyncVisibility())
+			ColWheelWnd::GetCurrentForm()->ShowWindow(ui::ShowWindowCommands::kSW_HIDE);
+	}
+	return orig_OnSetPanelsShowStates(object, showStates);
 }
 
 
@@ -321,7 +406,7 @@ void CspColorTable::GetSubPaintColor(Color96* col)
 
 void CspColorTable::SetPaintColorType(PaintColorType type)
 {
-	if (getTargetColorTypeInfoFuncAttr && setTargetColorTypeFuncAttr && releaseTargetColorTypeInfoFuncAttr)
+	if (getTargetColorTypeInfoFuncAttr && orig_SetTargetColorType && releaseTargetColorTypeInfoFuncAttr)
 	{
 
 		if (type < PaintColorType::Transparent)
@@ -331,7 +416,8 @@ void CspColorTable::SetPaintColorType(PaintColorType type)
 			uint8_t infoBuffer[0X60];
 			((FI2)getTargetColorTypeInfoFuncAttr)((uintptr_t)infoBuffer, type);
 			//((FI2)setTargetColorTypeFuncAttr)(type,(uintptr_t)infoBuffer );
-			((FI2)orig_SetTargetColorType)(type,(uintptr_t)infoBuffer );
+			//((FI2)orig_SetTargetColorType)(type,(uintptr_t)infoBuffer );
+			orig_SetTargetColorType(type, infoBuffer);
 			((FI2)releaseTargetColorTypeInfoFuncAttr)((uintptr_t)infoBuffer,0);
 
 		}
@@ -467,6 +553,7 @@ uint32_t CspColorTable::_GetColor96At(uintptr_t offset, uint32_t fullback)
 
 int64_t CspColorTable::Hook_SetTargetColorType(uintptr_t type, const void* infoBuffer)
 {
+
 	auto retult = orig_SetTargetColorType(type, infoBuffer);
 	if (ColWheelWnd::GetCurrentForm())
 	{
@@ -488,6 +575,9 @@ int64_t CspColorTable::Hook_SetTargetColorType(uintptr_t type, const void* infoB
 
 int64_t CspColorTable::Hook_SetPaintColor(void* unknown, uintptr_t type, Color96* col)
 {
+
+
+
 	auto retult = orig_SetPaintColor(unknown, type, col);
 	if (ColWheelWnd::GetCurrentForm())
 	{

@@ -16,33 +16,41 @@ void ReplaceColorForm::ShowForm()
 
     if (pthis)return;
     pthis = new ReplaceColorForm;
-    pthis->CreateWnd(nullptr,ui::WindowCreateParam(L"CSP Helper Dialog",true));
+    pthis->CreateWnd(nullptr,ui::WindowCreateParam(L"CSP Filter Replace Color",true));
 
     if (pthis->IsWindow())
     {
         HWND child = pthis->NativeWnd()->GetHWND();
-
-
-        HWND parent =(HWND) CspData::GetNativeWindowHandle();
-        ::SetWindowLongPtr(child, GWLP_HWNDPARENT, (LONG_PTR)parent);
+        //HWND parent =(HWND) CspData::GetNativeWindowHandle();
+        //::SetWindowLongPtr(child, GWLP_HWNDPARENT, (LONG_PTR)parent);
 
         pthis->ShowWindow(ui::kSW_SHOW_NORMAL);
 
 
-
+        SDL_Log("Createing ReplaceColor Window");
         //设置窗口位置
         SDL_Rect windowRect = AppSettings::GetReplaceColorWindowRect();
         std::string displayName= AppSettings::GetReplaceColorDisplayName();
         int64_t displayIndex=AppSettings::GetReplaceColorDisplayIndex();
+
+
+        SDL_Log("Last Saved WindowRect:%d,%d,%d,%d", windowRect.x, windowRect.y, windowRect.w, windowRect.h);
+        SDL_Log("Last Saved DisplayName:%s", displayName.c_str());
+        SDL_Log("Last Saved DisplayIndex:%llu", displayIndex);
+
+
         int displayCount=0;
         SDL_DisplayID* displays= SDL_GetDisplays(&displayCount);
         SDL_DisplayID targetDisplayID = 0;
         //优先检查窗口名
         for (int i = 0; i < displayCount; i++)
         {
+
             std::string curDisplayName=SDL_GetDisplayName(displays[i]);
             if (curDisplayName == displayName)
             {
+
+                SDL_Log("Name Matched DisplayIndex:%d", i);
                 targetDisplayID = displays[i];
                 if (i == displayIndex)break;
             }
@@ -59,11 +67,23 @@ void ReplaceColorForm::ShowForm()
         {
             targetDisplayID = displays[0];
         }
+
+        SDL_Log("Finale Display:%s", SDL_GetDisplayName(targetDisplayID));
+
         SDL_Rect targetDisplayRect = { 0,0,1920,1080 };
         SDL_GetDisplayBounds(targetDisplayID,&targetDisplayRect);
+
+
+        SDL_Log("Target Display Bounds:%d,%d,%d,%d", targetDisplayRect.x, targetDisplayRect.y, targetDisplayRect.w, targetDisplayRect.h);
+
+
         windowRect.x += targetDisplayRect.x;
         windowRect.y += targetDisplayRect.y;
         SDL_GetDisplayUsableBounds(targetDisplayID,&targetDisplayRect);
+
+
+
+
         //调整windowRect 以使其完全在targetDisplayRect内部
         int xLimitL = targetDisplayRect.x;
         int xLimitR = targetDisplayRect.x + targetDisplayRect.w - windowRect.w;
@@ -75,6 +95,7 @@ void ReplaceColorForm::ShowForm()
          SDL_free(displays);
 
 
+         SDL_Log("Fixed WindowRect:%d,%d,%d,%d", windowRect.x, windowRect.y, windowRect.w, windowRect.h);
         if (windowRect.w != 0)
         {
             ui::UiPadding shadowPadding= pthis->GetCurrentShadowCorner();
@@ -692,7 +713,7 @@ void ReplaceColorForm::OnCloseWindow()
 
 
         //保存窗口位置信息
-
+        SDL_Log("Start Save Replace Color Window Pos....");
         ui::UiRect curWindowRect= this->GetWindowPos(false);
 
         int displayCount = 0;
@@ -703,6 +724,9 @@ void ReplaceColorForm::OnCloseWindow()
         saveRect.y = curWindowRect.top;
         saveRect.w = curWindowRect.Width();
         saveRect.h = curWindowRect.Height();
+
+
+        SDL_Log("Current Save Replace Color Window Pos:%d,%d,%d,%d", saveRect.x, saveRect.y, saveRect.w, saveRect.h);
 
         SDL_DisplayID targetDisplay = SDL_GetDisplayForRect(&saveRect);
         int displayIndex = 0;
@@ -715,10 +739,18 @@ void ReplaceColorForm::OnCloseWindow()
         }
         SDL_Rect targetDisplayBounds = {0,0,1920,1080};
         SDL_GetDisplayBounds(targetDisplay ,&targetDisplayBounds);
+
+
         //计算屏幕相关坐标
         saveRect.x -= targetDisplayBounds.x;
         saveRect.y -= targetDisplayBounds.y;
         std::string displayName=  SDL_GetDisplayName(targetDisplay);
+
+
+        SDL_Log("Target Display Bounds:%d,%d,%d,%d", targetDisplayBounds.x, targetDisplayBounds.y, targetDisplayBounds.w, targetDisplayBounds.h);
+        SDL_Log("Target Display:%s", displayName.c_str());
+        SDL_Log("Save Result Rect:%d,%d,%d,%d", saveRect.x, saveRect.y, saveRect.w, saveRect.h);
+
 
         AppSettings::SetReplaceColorDisplayName(displayName);
         AppSettings::SetReplaceColorDisplayIndex(displayIndex);

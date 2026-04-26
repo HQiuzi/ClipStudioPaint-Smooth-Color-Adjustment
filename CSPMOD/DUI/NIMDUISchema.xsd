@@ -1503,7 +1503,7 @@
 
 	<xs:complexType name="MenuItemAttr">
 		<xs:complexContent>
-			<xs:extension base="BoxAttr">
+			<xs:extension base="OptionBoxAttr">
 			</xs:extension>
 		</xs:complexContent>
 	</xs:complexType>

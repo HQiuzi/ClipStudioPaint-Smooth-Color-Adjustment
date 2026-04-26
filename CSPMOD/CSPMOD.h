@@ -31,6 +31,7 @@ public:
 	};
 public:
 	static void OnAttachCSP(uintptr_t moduleHandle);
+	static void OnMainWindowStart();
 	static void OnDetachCSP();
 	
 	static uintptr_t GetBaseAddr() { return baseAttr; };

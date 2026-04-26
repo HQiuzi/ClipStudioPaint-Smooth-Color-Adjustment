@@ -91,6 +91,33 @@ void AddressGenerator::PushCSPDataAddr()
 		if (!success)
 			SDL_LogError(SDL_LogCategory::SDL_LOG_CATEGORY_ERROR, "CSP Native Window Handle  Not Found!");
 	}
+	//监听设置窗口显示隐藏的基址
+	//48 89 5C 24 10 48 89 74 24 18 55 57 41 54 41 56 41 57 48 8D 6C 24 C9 48 81 EC E0 00 00 00 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 27 48 8D 55 D7 48 8B D9
+	{
+		uint8_t onSetPanelShowStatesFeature[] = {
+0x48,0x89,0x5C,0x24,0x10,0x48,0x89,0x74,0x24,0x18,//10
+0x55,0x57,0x41,0x54,0x41,0x56,0x41,0x57,0x48,0x8D,//10
+0x6C,0x24,0xC9,0x48,0x81,0xEC,0xE0,0x00,0x00,0x00,//10
+0x48,0x8B,0x05,BYTEWILDCARD, BYTEWILDCARD,BYTEWILDCARD,BYTEWILDCARD,//7
+0x48,0x33,0xC4,0x48,0x89,0x45,0x27,0x48,0x8D,0x55,
+0xD7,0x48,0x8B,0xD9
+
+		};
+
+		bool success = false;
+		for (uint32_t i = 0; i < _codeMemSize - sizeof(onSetPanelShowStatesFeature); i++)
+		{
+			if (_MatchFeatureCode(_codeMem + i, onSetPanelShowStatesFeature, sizeof(onSetPanelShowStatesFeature)))
+			{
+				SDL_Log("CSP OnSetPanelShowStates Func Finded.");
+				addrJson["CspAddressRVA"]["CSPInfo_OnSetPanelShowStates_Func"] = _VA + (uint32_t)i;
+				success = true;
+				break;
+			}
+		}
+		if (!success)
+			SDL_LogError(SDL_LogCategory::SDL_LOG_CATEGORY_ERROR, "CSP OnSetPanelShowStates Func Not Found!");
+	}
 
 
 
@@ -215,6 +242,56 @@ void AddressGenerator::PushCSPDataAddr()
 		}
 		if (!success)
 			SDL_LogError(SDL_LogCategory::SDL_LOG_CATEGORY_ERROR, "CSPPaintColor OnColorChanged Func Not Found!");
+	}
+
+
+
+
+
+
+
+
+	{
+	//一段获取导航器红框坐标的地址，通过修改他以禁用导航器红框绘制
+	
+		//48 8B 4D 90 48 8B 01 48 8D 95 20 02 00 00 FF 50 18 48 8D 8E 60 02 00 00 E8 ?? ?? ?? ?? 4C 8B F0 48 89 44 24 48 48 8D 8E 70 02 00 00 E8 ?? ?? ?? ?? 48 8B D8 48 89 44 24 40 48 8D 8E 80 02 00 00 E8 ?? ?? ?? ?? 48 8B F8 48 89 45 A0 48 8D 8E 90 02 00 00 E8 ?? ?? ?? ?? 48 8B F0 48 89 44 24 50 4C 8B 6D 90 4D 8B 65 00 B2 FF	
+
+
+		uint8_t navigatorRectPosConvertCodeFeature[] = {
+0x48,0x8B,0x4D,0x90,0x48,0x8B,0x01,0x48,0x8D,0x95,//10
+0x20,0x02,0x00,0x00,0xFF,0x50,0x18,//7
+
+
+0x48,0x8D,0x8E,0x60,0x02,0x00,0x00,//7
+
+0xE8,BYTEWILDCARD, BYTEWILDCARD,BYTEWILDCARD,BYTEWILDCARD,//5
+0x4C,0x8B,0xF0,0x48,0x89,0x44,0x24,0x48,0x48,0x8D,//10
+0x8E,0x70,0x02,0x00,0x00,//5
+0xE8,BYTEWILDCARD, BYTEWILDCARD,BYTEWILDCARD,BYTEWILDCARD,//5
+0x48,0x8B,0xD8,0x48,0x89,0x44,0x24,0x40,0x48,0x8D,//10
+0x8E,0x80,0x02,0x00,0x00,//5
+0xE8,BYTEWILDCARD, BYTEWILDCARD,BYTEWILDCARD,BYTEWILDCARD,//5
+0x48,0x8B,0xF8,0x48,0x89,0x45,0xA0,0x48,0x8D,0x8E,//10
+0x90,0x02,0x00,0x00,//4
+0xE8,BYTEWILDCARD, BYTEWILDCARD,BYTEWILDCARD,BYTEWILDCARD,//5
+0x48,0x8B,0xF0,0x48,0x89,0x44,0x24,0x50,0x4C,0x8B,//10
+0x6D,0x90,0x4D,0x8B,0x65,0x00,0xB2,0xFF//8
+		};
+
+		bool success = false;
+		for (uint32_t i = 0; i < _codeMemSize - sizeof(navigatorRectPosConvertCodeFeature); i++)
+		{
+			if (_MatchFeatureCode(_codeMem + i, navigatorRectPosConvertCodeFeature, sizeof(navigatorRectPosConvertCodeFeature)))
+			{
+
+				SDL_Log("CSPNavigator GetRectPos Code Addr Finded.");
+				addrJson["CspAddressRVA"]["CSPNavigator_GetRectPos_CodeAddr"] = _VA + i + 10 + 7 ;
+				success = true;
+				break;
+			}
+		}
+		if (!success)
+			SDL_LogError(SDL_LogCategory::SDL_LOG_CATEGORY_ERROR, "CSPNavigator GetRectPos CodeAddr Func Not Found!");
 	}
 
 }
