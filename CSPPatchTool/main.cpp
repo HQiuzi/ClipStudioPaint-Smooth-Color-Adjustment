@@ -5,7 +5,7 @@
 
 
 
-void ProcessCSP(uint8_t* mem,size_t size,DllInject::EXETYPE exeType)
+void ProcessCSP(uint8_t* mem,size_t size,DllInject::EXETYPE exeType,bool isLinuxPlatform)
 {
     DllInject cspExeInject;
 
@@ -14,7 +14,7 @@ void ProcessCSP(uint8_t* mem,size_t size,DllInject::EXETYPE exeType)
 
 
     printf("Start Patch...\n");
-    cspExeInject.Patch();
+    cspExeInject.Patch(isLinuxPlatform);
 }
 
 
@@ -100,12 +100,33 @@ void SetUpLogFunc()
 
 
 
-int main()
+int main(int argc, char* argv[])
 {
 
-
-
     SetUpLogFunc();
+
+
+    bool isLinuxPlatform = false;
+
+
+
+
+    for (int i = 0; i < argc; i++)
+    {
+        if (strcmp(argv[i], "-linux") == 0) {
+            isLinuxPlatform=true;
+
+            printf("Linux flag set.\n");
+        }
+
+    }
+
+
+
+
+
+
+
 	const char* CSP_Path = "CLIPStudioPaint.exe";
     const char* UDM_Path = "UDMPaintPRO.exe";
     const char* UDMEX_Path = "UDMPaintEX.exe";
@@ -158,7 +179,7 @@ int main()
     fread(buffer, 1, size, fp);
     fclose(fp);
 
-    ProcessCSP(buffer,size, exetype);
+    ProcessCSP(buffer,size, exetype, isLinuxPlatform);
 
     // buffer 里就是文件内容
     free(buffer);

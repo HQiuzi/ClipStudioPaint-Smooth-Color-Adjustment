@@ -69,7 +69,10 @@ private:
 	Microsoft::WRL::ComPtr <ID3D11Buffer> pUniformBufferPrimaryHueCirclePS;//像素着色器参数
 
 	Microsoft::WRL::ComPtr <ID3D11SamplerState> pTableSampler;//像素着色器参数
+
+#ifndef OK_COLOR
 	std::unique_ptr< Texture> pMaxChromaOfHueTable;
+#endif
 	RenderTexture alphaBlurTex;
 
 

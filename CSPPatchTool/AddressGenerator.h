@@ -26,6 +26,8 @@ public:
 
 
 	void PushTimerPointAddr();
+	void PatchTimerPointAddr();//仅linux
+
 	void PushUDMPluginUnlockAddr();
 
 

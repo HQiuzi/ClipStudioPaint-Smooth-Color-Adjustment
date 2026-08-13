@@ -2,6 +2,13 @@
 #include"DUI/DuiCommon.h"
 #include<SDL3/SDL.h>
 
+
+
+#ifndef OK_COLOR
+
+
+
+
 static float GetTValue(float t)
 {
 	if (t > 0.008856f)
@@ -488,6 +495,10 @@ float CSPMOD_ColorConvert::RGBH2LCHH(float h_deg)
 			}
 		}
 	}
+
+
+
+
 	//逆向表
 	//先寻找LCHH为0时的索引值
 	//int lchStartIndex = 0;
@@ -512,7 +523,7 @@ float CSPMOD_ColorConvert::RGBH2LCHH(float h_deg)
 		//从curFindIndex开始寻找目标索引
 		for (int j = 0; j < HUETOTAL; j++)
 		{
-			int testIndex = j + curFindIndex;
+			int testIndex = (j + curFindIndex)% HUETOTAL;
 			float L = UIH2LCHH_map[testIndex];
 			float R = UIH2LCHH_map[(testIndex + 1) % HUETOTAL];
 			//先转为以h_lch为中心的-pi到pi数值
@@ -542,7 +553,11 @@ float CSPMOD_ColorConvert::RGBH2LCHH(float h_deg)
 
 	}
 
-
+	//调试发现Release下，1800之后LCHH2UIH_map的数值为0。DEBUG没有问题 
+	for (int i = 0; i < HUETOTAL; i++)
+	{
+		SDL_Log("%d:%f-%f", i, UIH2LCHH_map[i], LCHH2UIH_map[i]);
+	}
 
 	UIH_LCHH_map_Inited = true;
 	return RGBH2LCHH(h_deg);
@@ -722,3 +737,103 @@ float* CSPMOD_ColorConvert::GetMaxChromaOfHueTable(uint32_t* outLCount, uint32_t
 	*outHueCount = HUETOTAL;
 	return (float*)maxChroma_Hue;
 }
+
+
+
+
+#else
+
+
+
+#include"ok_color.h"
+
+
+
+
+//inline float srgb_transfer_function_inv(float a)
+//{
+//	return .04045f < a ? powf((a + .055f) / 1.055f, 2.4f) : a / 12.92f;
+//}
+
+
+//r g b:0~1
+// L 0~100;
+// C 0~100;
+// H 0~360;
+void CSPMOD_ColorConvert::RGB2Lch(float r, float g, float b, float* L, float* c, float* lchH)
+{
+	ok_color::HSL result = ok_color::srgb_to_okhsl({r,g,b});
+
+
+	//检查lsh范围
+	*L = result.l*100.f;
+	*c = result.s * 100.f;
+	*lchH = result.h*360.f;
+
+}
+
+
+
+
+void CSPMOD_ColorConvert::Lch2RGB(float L, float c, float h, float* r, float* g, float* b)
+{
+	ok_color::RGB result = ok_color::okhsl_to_srgb({ h / 360.f,c/100.f,L / 100.f});
+
+
+	*r = result.r;
+	*g = result.g;
+	*b = result.b;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif

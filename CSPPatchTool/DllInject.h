@@ -36,7 +36,7 @@ public:
 
 
 
-	bool Patch();
+	bool Patch(bool isLinuxPlatform);
 
 	void SetRandomAddrDisable();
 	bool InjectDll();

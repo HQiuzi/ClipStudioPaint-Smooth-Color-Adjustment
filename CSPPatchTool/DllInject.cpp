@@ -197,7 +197,7 @@ std::vector<std::string> DllInject::GetDllList()
 }
 
 
-bool DllInject::Patch()
+bool DllInject::Patch(bool isLinuxPlatform)
 {
     uint32_t testCode[] = { 0x6b636168,0x7478742e,0};
 
@@ -223,7 +223,7 @@ bool DllInject::Patch()
 
 
 
-
+    
     //if (_exeType != EXETYPE::CSP)
     //{
     //    InjectMidDLL();
@@ -231,8 +231,13 @@ bool DllInject::Patch()
     //else
     //{
     //    InjectDll();
-
     //}
+
+    //if (isLinuxPlatform)
+    //{
+    //    InjectDll();
+    //}
+
 
 
 
@@ -330,8 +335,12 @@ bool DllInject::Patch()
     //printf("Generating Address Table Success!");
 
 
-
-
+    //为了防止修改数据后影响了数据地址检索，linux相关的修改放在地址生成之后再进行
+    if (isLinuxPlatform)
+    {
+        //addrGenerator.PatchTimerPointAddr();
+        hacker.DoPatchTimerPoint();
+    }
 
 
 
@@ -343,7 +352,7 @@ bool DllInject::Patch()
     //所以可以选择在这里进行自动注入
 
 
-    if (baseHack&&_exeType == EXETYPE::CSP)
+    if (isLinuxPlatform||(baseHack&&_exeType == EXETYPE::CSP))
     {
         const char* _outFileName[3] =
         { "CLIPStudioPaint_Patched.exe","UDMPaintPRO_Patched.exe","UDMPaintEX_Patched.exe" };

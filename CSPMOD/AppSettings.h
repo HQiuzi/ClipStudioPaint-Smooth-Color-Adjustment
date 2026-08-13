@@ -67,7 +67,7 @@ public:
 #define APPSETTINGS_Declarations(settingGroup,setting,type,defaultValue) \
 public: \
 static type Get##settingGroup##setting(){return ins._##settingGroup##setting;} \
-static void Set##settingGroup##setting(const type##& value){ \
+static void Set##settingGroup##setting(const type& value){ \
     if(ins._##settingGroup##setting!=value){ins._##settingGroup##setting=value;ins._On##settingGroup##setting##Change(value);}} \
 private: \
 type _##settingGroup##setting=defaultValue; \

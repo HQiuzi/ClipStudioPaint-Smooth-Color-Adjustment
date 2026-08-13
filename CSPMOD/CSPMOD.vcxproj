@@ -191,6 +191,7 @@
     <ClInclude Include="Graphic\D3D11Graphic.h" />
     <ClInclude Include="Graphic\Geometry.h" />
     <ClInclude Include="Graphic\HSVColorConvert.h" />
+    <ClInclude Include="Graphic\ok_color.h" />
     <ClInclude Include="Graphic\RenderSubWindow.h" />
     <ClInclude Include="Graphic\Texture.h" />
     <ClInclude Include="Graphic\Window2DComponent_NOTDCOMP.h" />

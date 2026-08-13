@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Window
         caption="0,0,0,28" use_system_caption="false" snap_layout_menu="true" 
-        shadow_type="default" shadow_attached="true" shadow_snap="true" layered_window="true" 
+        shadow_type="none"  shadow_snap="true" layered_window="true" 
         alpha="255" icon="public/caption/logo.ico" size="500,500" min_size="240,180" size_box="4,4,4,4"
 		 shadow_border_color="#CSPColor_CaptionFocus"
 		xmlns:xs="http://www.w3.org/2001/XMLSchema"
@@ -21,7 +21,7 @@
 					   focus_border_color="#CSPColor_CaptionContent" number_only="true" want_return="true" text_align="hcenter,vcenter"  />
 
 
-	<VBox bkcolor="#CSPColor_PanelBG">    
+	<VBox bkcolor="#CSPColor_PanelBG" border_color="#CSPColor_CaptionFocus" border_size="2,0,2,2">    
         <!-- 标题栏区域 工具窗口不需要文字标题-->
         <HBox name="window_caption_bar" width="stretch" height="18" normal_color="#CSPColor_CaptionFocus" disabled_color="#CSPColor_CaptionNoFocus">
 			  <Button name="windowMenu"  width="26" height="18" normal_image="file='menu24x.svg' dest='5,1,21,17' " hot_image="file='menu24x_hot.svg' dest='5,1,21,17'"/>

@@ -529,7 +529,9 @@ void ColWheelWnd::SetColor(float r, float g, float b)
         colorControl->SetLCHrgb(LCH_L, LCH_C, LCH_H);
         colorControl_Primary->SetLCHrgb(LCH_L, LCH_C, LCH_H);
 
-
+        slider_vlch_L->SetValue(LCH_L * 100.f);
+        slider_vlch_C->SetValue(LCH_C * 100.f);
+        slider_vlch_H->SetValue(LCH_H * 100.f);
         edit_vlch_L->SetTextNoEvent(std::to_wstring((int)SDL_round(LCH_L)));
         edit_vlch_C->SetTextNoEvent(std::to_wstring((int)SDL_round(LCH_C)));
         edit_vlch_H->SetTextNoEvent(std::to_wstring((int)SDL_round(LCH_H)));

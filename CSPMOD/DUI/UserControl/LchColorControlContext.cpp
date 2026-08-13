@@ -241,6 +241,8 @@ bool LchColorControlContext::CreateContext()
         }
     }
 
+
+#ifndef OK_COLOR
     //maxvalue表
     {
 
@@ -251,8 +253,7 @@ bool LchColorControlContext::CreateContext()
         pMaxChromaOfHueTable.reset(new Texture(Texture::float32, HueTotal, LightTotal, pdata));
 
     }
-
-
+#endif
 
 
 
@@ -315,10 +316,13 @@ void LchColorControlContext::DrawLchColorControl(RenderTexture* renderTarget, fl
 
         pcontext->PSSetConstantBuffers(0, 1, pUniformBuffer.GetAddressOf());
         //pcontext->PSSetConstantBuffers(1, 1, pMaxChromaOfHueTable.GetAddressOf());
+
+
+#ifndef OK_COLOR
         auto ptexTable=pMaxChromaOfHueTable->GetTex();
         pcontext->PSSetShaderResources(0,1, &ptexTable);
         pcontext->PSSetSamplers(0,1, pTableSampler.GetAddressOf());
-
+#endif
 
         D3D11_VIEWPORT vp = {};
         vp.Width = static_cast<float>(renderTarget->GetSizeW());
@@ -384,9 +388,13 @@ void LchColorControlContext::DrawLchColorControlPrimaryRectangle(RenderTexture* 
         pcontext->PSSetShader(pLchColorControlPrimaryRectanglePS.Get(), nullptr, 0);
 
         pcontext->PSSetConstantBuffers(0, 1, pUniformBufferPrimaryRectangle.GetAddressOf());
+
+#ifndef OK_COLOR
         auto ptexTable = pMaxChromaOfHueTable->GetTex();
         pcontext->PSSetShaderResources(0, 1, &ptexTable);
         pcontext->PSSetSamplers(0, 1, pTableSampler.GetAddressOf());
+#endif
+
 
         D3D11_VIEWPORT vp = {};
         vp.Width = static_cast<float>(renderTarget->GetSizeW());
@@ -446,9 +454,13 @@ void LchColorControlContext::DrawLchColorControlPrimaryHueCircle(RenderTexture* 
         pcontext->PSSetShader(pLchColorControlPrimaryHueCirclePS.Get(), nullptr, 0);
 
         pcontext->PSSetConstantBuffers(0, 1, pUniformBufferPrimaryHueCirclePS.GetAddressOf());
+
+#ifndef OK_COLOR
         auto ptexTable = pMaxChromaOfHueTable->GetTex();
         pcontext->PSSetShaderResources(0, 1, &ptexTable);
         pcontext->PSSetSamplers(0, 1, pTableSampler.GetAddressOf());
+#endif
+
         D3D11Graphic::BindDefaultBlend();
 
         D3D11_VIEWPORT vp = {};
@@ -518,10 +530,12 @@ void LchColorControlContext::DrawLchColorControlPrimaryTriangle(RenderTexture* r
 
 
         pcontext->PSSetConstantBuffers(0, 1, pUniformBufferPrimaryTriangle.GetAddressOf());
+
+#ifndef OK_COLOR
         auto ptexTable = pMaxChromaOfHueTable->GetTex();
         pcontext->PSSetShaderResources(0, 1, &ptexTable);
         pcontext->PSSetSamplers(0, 1, pTableSampler.GetAddressOf());
-
+#endif
 
         D3D11_VIEWPORT vp = {};
         vp.Width = 2*static_cast<float>(renderTarget->GetSizeW());
