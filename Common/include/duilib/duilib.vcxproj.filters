@@ -831,9 +831,6 @@
     <ClCompile Include="Core\StateColorMap2.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\CatTuber64\duilib_CodePatch\Image_cpp_patch.cpp">
-      <Filter>_CodePatch</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\CatTuber64\duilib_CodePatch\ImageDecoder_patch.cpp">
       <Filter>_CodePatch</Filter>
     </ClCompile>
@@ -850,6 +847,9 @@
       <Filter>_CodePatch</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\CatTuber64\duilib_CodePatch\RichEdit_Windows_cpp_patch.cpp">
+      <Filter>_CodePatch</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\CatTuber64\duilib_CodePatch\Image_cpp_patch.cpp">
       <Filter>_CodePatch</Filter>
     </ClCompile>
   </ItemGroup>
@@ -1769,5 +1769,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="duilib.ruleset" />
+    <None Include="..\..\..\CatTuber64\duilib_CodePatch\unzip_c_CheckCurrentFileCoherencyHeader.inl">
+      <Filter>_CodePatch</Filter>
+    </None>
+    <None Include="..\..\..\CatTuber64\duilib_CodePatch\RenderSkia_DrawRichText_cpp_InternalDrawRichText.inl">
+      <Filter>_CodePatch</Filter>
+    </None>
+    <None Include="..\..\..\CatTuber64\duilib_CodePatch\Menu_cpp.inl">
+      <Filter>_CodePatch</Filter>
+    </None>
   </ItemGroup>
 </Project>

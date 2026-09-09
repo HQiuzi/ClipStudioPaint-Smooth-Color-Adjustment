@@ -80,6 +80,9 @@ DrawRichText::DrawRichText(IRender* pRender, SkCanvas* pSkCanvas, SkPaint* pSkPa
 {
 }
 
+
+#include"duilib_CodePatch/RenderSkia_DrawRichText_cpp_InternalDrawRichText.inl"
+#if 0
 void DrawRichText::InternalDrawRichText(const UiRect& rcTextRect,
                                         const UiSize& szScrollOffset,
                                         IRenderFactory* pRenderFactory, 
@@ -537,7 +540,7 @@ void DrawRichText::InternalDrawRichText(const UiRect& rcTextRect,
         }
     }
 }
-
+#endif
 void DrawRichText::SplitLines(const std::wstring_view& lineText, std::vector<uint32_t>& lineSeprators, std::vector<std::wstring_view>& lineTextViewList)
 {
     if (lineText.empty()) {

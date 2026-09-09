@@ -100,7 +100,8 @@ void Menu::ShowMenu(const DString& xml, const UiPoint& point, MenuPopupPosType p
     Menu::GetMenuObserver().AddReceiver(this);
     WindowCreateParam createWndParam;
     createWndParam.m_dwStyle = kWS_POPUP;
-    createWndParam.m_dwExStyle = kWS_EX_TOPMOST | kWS_EX_LAYERED;
+    //createWndParam.m_dwExStyle = kWS_EX_TOPMOST | kWS_EX_LAYERED;
+#include"duilib_CodePatch/Menu_cpp.inl"
     //设置初始位置，避免菜单初次显示时出现黑屏现象
     createWndParam.m_nX = point.x;
     createWndParam.m_nY = point.y;

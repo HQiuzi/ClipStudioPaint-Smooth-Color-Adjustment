@@ -766,10 +766,11 @@ void CSPMOD_ColorConvert::RGB2Lch(float r, float g, float b, float* L, float* c,
 
 
 	//检查lsh范围
-	*L = result.l*100.f;
-	*c = result.s * 100.f;
+	*L = SDL_clamp(result.l*100.f,0.F,100.F);
+	*c = SDL_clamp(result.s * 100.f, 0.F, 100.F);
 	*lchH = result.h*360.f;
-
+	if (*lchH >= 360.f)*lchH -= 360.f;
+	if (*lchH < 0.f)*lchH += 360.f;
 }
 
 
@@ -779,10 +780,12 @@ void CSPMOD_ColorConvert::Lch2RGB(float L, float c, float h, float* r, float* g,
 {
 	ok_color::RGB result = ok_color::okhsl_to_srgb({ h / 360.f,c/100.f,L / 100.f});
 
-
-	*r = result.r;
-	*g = result.g;
-	*b = result.b;
+	*r = SDL_clamp(result.r, 0.f, 1.f);
+	*g = SDL_clamp(result.g, 0.f, 1.f);
+	*b = SDL_clamp(result.b, 0.f, 1.f);
+	//*r = result.r;
+	//*g = result.g;
+	//*b = result.b;
 }
 
 
