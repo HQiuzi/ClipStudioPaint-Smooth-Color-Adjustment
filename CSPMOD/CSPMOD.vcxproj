@@ -190,6 +190,7 @@
     <ClInclude Include="Graphic\Texture.h" />
     <ClInclude Include="Graphic\Window2DComponent_NOTDCOMP.h" />
     <ClInclude Include="LayerObject.h" />
+    <ClInclude Include="HostUndoTransaction.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="ScriptAction_ApplyEffectLayers.h" />
@@ -245,6 +246,7 @@
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</DeploymentContent>
     </ClCompile>
     <ClCompile Include="LayerObject.cpp" />
+    <ClCompile Include="HostUndoTransaction.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

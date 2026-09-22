@@ -102,6 +102,9 @@
     <ClInclude Include="LayerObject.h">
       <Filter>FunctionExpansion</Filter>
     </ClInclude>
+    <ClInclude Include="HostUndoTransaction.h">
+      <Filter>FunctionExpansion</Filter>
+    </ClInclude>
     <ClInclude Include="CSPHelper.h">
       <Filter>FunctionExpansion</Filter>
     </ClInclude>
@@ -234,6 +237,9 @@
       <Filter>FunctionExpansion</Filter>
     </ClCompile>
     <ClCompile Include="LayerObject.cpp">
+      <Filter>FunctionExpansion</Filter>
+    </ClCompile>
+    <ClCompile Include="HostUndoTransaction.cpp">
       <Filter>FunctionExpansion</Filter>
     </ClCompile>
     <ClCompile Include="CSPHelper.cpp">

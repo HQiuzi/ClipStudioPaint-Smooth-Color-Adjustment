@@ -13,6 +13,10 @@ public:
 	static LayerObject GetCurrentLayer();
 	static LayerObject GetCurrentRoot();//每一个项目都有一个根节点
 	static void* GetCurrentHost();
+	static void* GetUndoModel();
+	// Address of the document's embedded shared_ptr to the undo model:
+	// object pointer at +0, control block at +8.
+	static void* GetUndoModelSharedPtr();
 	
 	int GetChildLayerCount();//只返回一层，不进行深度遍历， 图层组也算图层
 	LayerObject GetChildAt(int index);

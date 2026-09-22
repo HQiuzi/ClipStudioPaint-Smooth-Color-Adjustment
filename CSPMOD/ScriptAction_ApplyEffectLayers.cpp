@@ -1,6 +1,7 @@
 #include "ScriptAction_ApplyEffectLayers.h"
 
 #include "LayerObject.h"
+#include "HostUndoTransaction.h"
 
 #include <SDL3/SDL.h>
 
@@ -1251,9 +1252,22 @@ ScriptAction_ApplyEffectLayers::Result ScriptAction_ApplyEffectLayers::Run()
     const bool targetGroupWasOpen = targetIsGroup &&
         clippingTarget.IsGroupOpen();
     bool originalsChanged = false;
+    // Group the whole action into one history entry when the host supports it.
+    // An inactive transaction means the host build is unknown, and the action
+    // simply keeps recording separate entries as before.
+    HostUndoTransaction undoTransaction(L"\u5408\u5E76\u540E\u671F\u5C42");
+    if (!undoTransaction.IsActive())
+    {
+        SDL_Log("Apply Effects Layer: grouped undo unavailable, "
+            "history will keep separate entries");
+    }
     auto failOperation = [&](const char* stage)
     {
-        if (originalsChanged)
+        // Undoing the group also reverts the layer state written through it,
+        // so the manual restore is only needed when grouping was unavailable
+        // or the rollback could not complete.
+        const bool rolledBack = undoTransaction.IsActive() && undoTransaction.Rollback();
+        if (originalsChanged && !rolledBack)
             RestoreLayerStates(originalStates);
         RestoreGroupStates(workGroupStates);
         QuarantineNewChildren(parentPtr, originalChildren);
@@ -1366,6 +1380,9 @@ ScriptAction_ApplyEffectLayers::Result ScriptAction_ApplyEffectLayers::Run()
     if (!FindLayer(resultPtr, result))
         return failOperation("final result lookup");
     result.SetSelect();
+
+    if (!undoTransaction.Commit())
+        return failOperation("history grouping");
 
     SDL_Log("Apply Effects Layer completed: %llu sources, target mode=%s",
         static_cast<unsigned long long>(sources.size()),

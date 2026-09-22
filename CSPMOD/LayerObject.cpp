@@ -151,6 +151,27 @@ void* LayerObject::GetCurrentHost()
 	return (void*)pLayer;
 }
 
+// The undo model lives on the same document object the layer tree is reached
+// through.  Callers must validate the returned pointer before using it.
+void* LayerObject::GetUndoModel()
+{
+	if (!layerBaseAddr)return nullptr;
+	uintptr_t pDoc = *(uintptr_t*)(layerBaseAddr);
+	if (!CSPMOD::IsPtrValid(pDoc + 0x1D0))return nullptr;
+	void* undoModel = *(void**)(pDoc + 0x1D0);
+	if (!CSPMOD::IsPtrValid(undoModel, sizeof(void*)))return nullptr;
+	return undoModel;
+}
+
+void* LayerObject::GetUndoModelSharedPtr()
+{
+	if (!layerBaseAddr)return nullptr;
+	uintptr_t pDoc = *(uintptr_t*)(layerBaseAddr);
+	// The document stores the undo model in a shared_ptr at +0x1D0.
+	if (!CSPMOD::IsPtrValid(pDoc + 0x1D8))return nullptr;
+	return (void*)(pDoc + 0x1D0);
+}
+
 
 int LayerObject::GetChildLayerCount()
 {
