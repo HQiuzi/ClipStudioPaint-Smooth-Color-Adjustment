@@ -27,7 +27,7 @@
 // 
 // +0x1E0 指向图层组第一个图层的指针的指针（begin）
 // +0x1E8 指向图层组第最后一个的后一个图层的指针的指针（end）
-//+0X1EC 第1字节:图层选中flag? 1为正常，3为选中蒙版0为未选中
+// x64 下这个指针占用 +0x1E8~+0x1EF；+0x1EC 不是独立的选择标志。
 //
 
 
@@ -196,6 +196,11 @@ void LayerObject::Duplicate()
 void LayerObject::AddSelect()
 {
 	(*(uint8_t*)(ptr + 0x16c))|=1;
+}
+
+bool LayerObject::IsSelected()
+{
+	return CheckPtr() && ((*(uint8_t*)(ptr + 0x16c)) & 0x1) != 0;
 }
 
 void LayerObject::SetSelect(bool b)
@@ -394,6 +399,16 @@ void LayerObject::SetOpacity(uint16_t opacity)
 	(*(uint16_t*)(ptr + 0x1A0)) = oldOpacityBytes+ opacity;
 }
 
+uint32_t LayerObject::GetBlendMode()
+{
+	return *(uint32_t*)(ptr + 0x1A4);
+}
+
+void LayerObject::SetBlendMode(uint32_t blendMode)
+{
+	*(uint32_t*)(ptr + 0x1A4) = blendMode;
+}
+
 bool LayerObject::IsGroup()
 {
 	return  (*(uint8_t*)(ptr + 0x1BC))&0x1;
@@ -523,13 +538,18 @@ void LayerObject::MergeDown()
 	param[0] = ptr;
 	param[1] = *(uintptr_t*)(param[0] + 0x30);
 
-	_func(param,(void*)1, 0);//会在下方有蒙版的时候报错？
+	__try
+	{
+		_func(param,(void*)1, 0);//会在下方有蒙版的时候报错？
+	}
+	__finally
+	{
+		// 即使宿主合并过程抛出 SEH，也必须复原临时代码补丁。
+		CSPMOD::CodePatch(layer_mergeDownPatchAddr, oldOp, sizeof(oldOp));
+	}
 
 	//_funcReleaseParam3(param3);
 
-
-	//复原代码
-	CSPMOD::CodePatch(layer_mergeDownPatchAddr, oldOp, sizeof(oldOp));
 
 }
 

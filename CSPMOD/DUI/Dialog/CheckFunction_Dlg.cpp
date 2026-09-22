@@ -7,6 +7,7 @@
 #include"TA_ToneCurve.h"
 #include"TimeLapseExport.h"
 #include"ScriptAction_ApplyEffects.h"
+#include"ScriptAction_ApplyEffectLayers.h"
 #include"AppSettings.h"
 void CheckFunction_Dlg::ShowModalDlg()
 {
@@ -53,6 +54,7 @@ void CheckFunction_Dlg::OnInitWindow()
     auto supportedIcon_plugin_motionblur = static_cast<ui::Control*>(FindControl(L"supportedIcon_plugin_motionblur"));
     auto supportedIcon_timelapseexport = static_cast<ui::Control*>(FindControl(L"supportedIcon_timelapseexport"));
     auto supportedIcon_applyeffects = static_cast<ui::Control*>(FindControl(L"supportedIcon_applyeffects"));
+    auto supportedIcon_applyeffectlayers = static_cast<ui::Control*>(FindControl(L"supportedIcon_applyeffectlayers"));
     auto supportedIcon_hideNavigatorViewIndicator = static_cast<ui::Control*>(FindControl(L"supportedIcon_hideNavigatorViewIndicator"));
     
     if (supportedIcon_hsv && TA_HSV::Available())supportedIcon_hsv->SetVisible(true);
@@ -64,6 +66,7 @@ void CheckFunction_Dlg::OnInitWindow()
         supportedIcon_plugin_motionblur->SetVisible(true);
     if (supportedIcon_timelapseexport && TimeLapseExport_hook::Available())supportedIcon_timelapseexport->SetVisible(true);
     if (supportedIcon_applyeffects && ScriptAction_ApplyEffects::Available())supportedIcon_applyeffects->SetVisible(true);
+    if (supportedIcon_applyeffectlayers && ScriptAction_ApplyEffectLayers::Available())supportedIcon_applyeffectlayers->SetVisible(true);
     if (supportedIcon_hideNavigatorViewIndicator && CspData::GetHideNavigatorViewIndicatorAvaliable())supportedIcon_hideNavigatorViewIndicator->SetVisible(true);
 
 
@@ -75,6 +78,7 @@ void CheckFunction_Dlg::OnInitWindow()
     
     checkBox_timelapseexport = static_cast<ui::CheckBox*>(FindControl(L"checkBox_timelapseexport"));
     checkBox_applyeffects = static_cast<ui::CheckBox*>(FindControl(L"checkBox_applyeffects"));
+    checkBox_applyeffectlayers = static_cast<ui::CheckBox*>(FindControl(L"checkBox_applyeffectlayers"));
 
     checkBox_hideNavigatorViewIndicator= static_cast<ui::CheckBox*>(FindControl(L"checkBox_hideNavigatorViewIndicator"));
     //设置主题
@@ -86,6 +90,7 @@ void CheckFunction_Dlg::OnInitWindow()
 
         checkBox_timelapseexport->SetClass(L"CF_Checkbox_light");
         checkBox_applyeffects->SetClass(L"CF_Checkbox_light");
+        checkBox_applyeffectlayers->SetClass(L"CF_Checkbox_light");
         checkBox_hideNavigatorViewIndicator->SetClass(L"CF_Checkbox_light");
     }
     //设置可见性
@@ -95,6 +100,7 @@ void CheckFunction_Dlg::OnInitWindow()
         if (!TA_ToneCurve::Available()) checkBox_tonecurve->SetVisible(false);
         if (!TimeLapseExport_hook::Available())checkBox_timelapseexport->SetVisible(false);
         if (!ScriptAction_ApplyEffects::Available())checkBox_applyeffects->SetVisible(false);
+        if (!ScriptAction_ApplyEffectLayers::Available())checkBox_applyeffectlayers->SetVisible(false);
         if (!CspData::GetHideNavigatorViewIndicatorAvaliable())checkBox_hideNavigatorViewIndicator->SetVisible(false);
     }
     
@@ -103,6 +109,7 @@ void CheckFunction_Dlg::OnInitWindow()
     checkBox_tonecurve->SetSelected(AppSettings::GetFunctionEnableToneCurve());
     checkBox_timelapseexport->SetSelected(AppSettings::GetFunctionEnableTimeLapseExport());
     checkBox_applyeffects->SetSelected(AppSettings::GetFunctionEnableScript_ApplyEffects());
+    checkBox_applyeffectlayers->SetSelected(AppSettings::GetFunctionEnableScript_ApplyEffectLayers());
     checkBox_hideNavigatorViewIndicator->SetSelected(AppSettings::GetFunctionEnableHideNavigatorViewIndicator());
     //设置回调
     checkBox_hsv->AttachSelect(UiBind(&CheckFunction_Dlg::OnCheckBoxClick, this, std::placeholders::_1));
@@ -110,6 +117,7 @@ void CheckFunction_Dlg::OnInitWindow()
     checkBox_tonecurve->AttachSelect(UiBind(&CheckFunction_Dlg::OnCheckBoxClick, this, std::placeholders::_1));
     checkBox_timelapseexport->AttachSelect(UiBind(&CheckFunction_Dlg::OnCheckBoxClick, this, std::placeholders::_1));
     checkBox_applyeffects->AttachSelect(UiBind(&CheckFunction_Dlg::OnCheckBoxClick, this, std::placeholders::_1));
+    checkBox_applyeffectlayers->AttachSelect(UiBind(&CheckFunction_Dlg::OnCheckBoxClick, this, std::placeholders::_1));
     checkBox_hideNavigatorViewIndicator->AttachSelect(UiBind(&CheckFunction_Dlg::OnCheckBoxClick, this, std::placeholders::_1));
     
     checkBox_hsv->AttachUnSelect(UiBind(&CheckFunction_Dlg::OnCheckBoxClick, this, std::placeholders::_1));
@@ -117,6 +125,7 @@ void CheckFunction_Dlg::OnInitWindow()
     checkBox_tonecurve->AttachUnSelect(UiBind(&CheckFunction_Dlg::OnCheckBoxClick, this, std::placeholders::_1));
     checkBox_timelapseexport->AttachUnSelect(UiBind(&CheckFunction_Dlg::OnCheckBoxClick, this, std::placeholders::_1));
     checkBox_applyeffects->AttachUnSelect(UiBind(&CheckFunction_Dlg::OnCheckBoxClick, this, std::placeholders::_1));
+    checkBox_applyeffectlayers->AttachUnSelect(UiBind(&CheckFunction_Dlg::OnCheckBoxClick, this, std::placeholders::_1));
     checkBox_hideNavigatorViewIndicator->AttachUnSelect(UiBind(&CheckFunction_Dlg::OnCheckBoxClick, this, std::placeholders::_1));
 
 
@@ -166,6 +175,11 @@ bool CheckFunction_Dlg::OnCheckBoxClick(const ui::EventArgs& args)
     {
         AppSettings::SetFunctionEnableScript_ApplyEffects(checkBox_applyeffects->IsSelected());
          return true;
+    }
+    if (args.GetSender() == checkBox_applyeffectlayers)
+    {
+        AppSettings::SetFunctionEnableScript_ApplyEffectLayers(checkBox_applyeffectlayers->IsSelected());
+        return true;
     }
     if (args.GetSender() == checkBox_hideNavigatorViewIndicator)
     {

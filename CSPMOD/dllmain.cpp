@@ -54,7 +54,10 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:
     case DLL_PROCESS_DETACH:
-        CSPMOD::OnDetachCSP();
+        // DllMain runs while the Windows loader lock is held.  OnDetachCSP()
+        // takes UI/thread-manager locks and can also save settings, so calling
+        // it from any of these notifications can deadlock the host.  Normal UI
+        // shutdown already persists the color-wheel state.
         break;
     }
     return TRUE;

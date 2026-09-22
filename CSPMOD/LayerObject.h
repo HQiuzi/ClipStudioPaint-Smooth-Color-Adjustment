@@ -23,6 +23,7 @@ public:
 	static void Duplicate();//复制
 	void SetSelect(bool b=true);
 	void AddSelect();
+	bool IsSelected();
 
 	std::wstring_view GetName();
 
@@ -39,6 +40,8 @@ public:
 	void SetLayerClippingMask(bool b);
 	uint16_t GetOpacity();//返回0~256 256表示100%
 		void SetOpacity(uint16_t);//输入0~256 256表示100%
+	uint32_t GetBlendMode();//0=正常，0x1E=穿透
+	void SetBlendMode(uint32_t blendMode);
 
 
 

@@ -165,9 +165,6 @@
       <SubSystem>Windows</SubSystem>
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
-    <PostBuildEvent>
-      <Command>copy /Y "G:\Projects\CSPMOD\CSPMOD\FilterPlugInCSPSAMPLE\OutputWin\CSPMOD\HSV\Debug\x64\HSV.cpm" "C:\Users\10737\AppData\Roaming\CELSYSUserData\CELSYS\CLIPStudioModule\PlugIn\PAINT\HSV.cpm"</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>

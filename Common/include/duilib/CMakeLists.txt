@@ -9,7 +9,7 @@ endif()
 set(CMAKE_POLICY_DEFAULT_CMP0091 NEW)
 if("${DUILIB_MD}" STREQUAL "ON")
     # MD/MDd
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL$<$<CONFIG:Debug>:Debug>")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 else()
     # MT/MTd
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -20,7 +20,7 @@ project(duilib CXX C)
 
 if(MSVC)
     # 源文件为UTF8编码
-    add_compile_options("/utf-8")
+    add_compile_options("/utf-8" "/bigobj")
     
     # 获取系统逻辑核心数
     cmake_host_system_information(RESULT CPU_CORES QUERY NUMBER_OF_LOGICAL_CORES)
@@ -56,13 +56,40 @@ endif()
 
 # Set include directories
 get_filename_component(DUILIB_SRC_ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}/../" ABSOLUTE)
-get_filename_component(SKIA_SRC_ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}/../../skia/" ABSOLUTE)
-get_filename_component(SDL_SRC_ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}/../../SDL3/" ABSOLUTE)
+get_filename_component(SKIA_INCLUDE_ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}/../skia/" ABSOLUTE)
+get_filename_component(SDL_INCLUDE_ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}/../" ABSOLUTE)
+
+# The repository only vendors Skia's public headers and prebuilt libraries.
+# duilib also compiles several files from Skia's tools/src trees, so point the
+# build at an exact Skia source checkout that matches the bundled m144 binary.
+set(DUILIB_SKIA_SOURCE_DIR
+    "${CMAKE_CURRENT_LIST_DIR}/out/skia-chrome-m144"
+    CACHE PATH "Full Skia source tree matching the bundled Skia libraries")
+get_filename_component(SKIA_SRC_ROOT_DIR "${DUILIB_SKIA_SOURCE_DIR}" ABSOLUTE)
+
+if(NOT EXISTS "${SKIA_SRC_ROOT_DIR}/tools/window/WindowContext.cpp")
+    message(FATAL_ERROR
+        "A matching full Skia source tree is required. "
+        "Set DUILIB_SKIA_SOURCE_DIR to Skia commit "
+        "f99770502ba148c466135444175d2cc1830347c5.")
+endif()
 
 # Always include these directories
 include_directories(${DUILIB_SRC_ROOT_DIR})
+include_directories(${SKIA_INCLUDE_ROOT_DIR})
 include_directories(${SKIA_SRC_ROOT_DIR})
-include_directories("${SDL_SRC_ROOT_DIR}/include")
+include_directories(${SDL_INCLUDE_ROOT_DIR})
+include_directories("${CMAKE_CURRENT_LIST_DIR}/third_party/libjpeg-turbo/libjpeg-turbo6-win-vc-x64/include")
+
+# libpng's generated configuration header is not committed, but its upstream
+# prebuilt template is. Generate the expected filename in the build tree.
+set(LIBPNG_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/libpng")
+file(MAKE_DIRECTORY "${LIBPNG_GENERATED_INCLUDE_DIR}")
+configure_file(
+    "${CMAKE_CURRENT_LIST_DIR}/third_party/libpng/scripts/pnglibconf.h.prebuilt"
+    "${LIBPNG_GENERATED_INCLUDE_DIR}/pnglibconf.h"
+    COPYONLY)
+include_directories(${LIBPNG_GENERATED_INCLUDE_DIR})
 
 # Conditionally include CEF directory
 if(CEF_LIB_DIR AND NOT CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
@@ -72,9 +99,11 @@ else()
     message(STATUS "CEF includes disabled - not supported on this platform")
 endif()
 
-#设置库文件的输出目录
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${DUILIB_SRC_ROOT_DIR}/lib/")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${DUILIB_SRC_ROOT_DIR}/lib/")
+# Keep rebuilt libraries separate until the main solution has linked against
+# and verified them.
+get_filename_component(DUILIB_REBUILT_LIB_DIR "${DUILIB_SRC_ROOT_DIR}/../bin/rebuilt" ABSOLUTE)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${DUILIB_REBUILT_LIB_DIR}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${DUILIB_REBUILT_LIB_DIR}")
 
 #添加源代码文件
 aux_source_directory(${CMAKE_CURRENT_LIST_DIR} DIR_LIB_SRC)
@@ -144,6 +173,19 @@ set(GIFLIB_SRCS
     ${DUILIB_SRC_ROOT_DIR}/duilib/third_party/giflib/quantize.c
 )
 
+# Project-specific CatTuber patches. Several original implementations are
+# intentionally disabled with #if 0 and replaced by these translation units.
+set(DUILIB_CODE_PATCH_DIR "${DUILIB_SRC_ROOT_DIR}/duilib_CodePatch")
+set(DUILIB_CODE_PATCH_SRCS
+    ${DUILIB_CODE_PATCH_DIR}/ImageDecoder_patch.cpp
+    ${DUILIB_CODE_PATCH_DIR}/ImageInfo_cpp_patch.cpp
+    ${DUILIB_CODE_PATCH_DIR}/Image_cpp_patch.cpp
+    ${DUILIB_CODE_PATCH_DIR}/RichEdit_Windows_cpp_patch.cpp
+    ${DUILIB_CODE_PATCH_DIR}/Slider_cpp_patch.cpp
+    ${DUILIB_CODE_PATCH_DIR}/WindowBuilder_cpp_patch.cpp
+    ${DUILIB_CODE_PATCH_DIR}/ZipManager_cpp_patch.cpp
+)
+
 set(SKIA_HDRS
     ${SKIA_SRC_ROOT_DIR}/tools/window/DisplayParams.h
     ${SKIA_SRC_ROOT_DIR}/tools/window/RasterWindowContext.h
@@ -206,6 +248,7 @@ set(LIBRARY_SOURCES
     ${UNZIP_SRCS}
     ${GIFLIB_HDRS}
     ${GIFLIB_SRCS}
+    ${DUILIB_CODE_PATCH_SRCS}
     ${SKIA_HDRS}
     ${SKIA_SRCS}
     ${SKIA_WGL_SRCS}
@@ -240,6 +283,29 @@ if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
 else()
     # Create the library with the filtered sources
     add_library(${PROJECT_NAME} ${LIBRARY_SOURCES})
+endif()
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    DEBUG_POSTFIX "_d"
+    ARCHIVE_OUTPUT_DIRECTORY "${DUILIB_REBUILT_LIB_DIR}"
+    ARCHIVE_OUTPUT_DIRECTORY_DEBUG "${DUILIB_REBUILT_LIB_DIR}"
+    ARCHIVE_OUTPUT_DIRECTORY_RELEASE "${DUILIB_REBUILT_LIB_DIR}"
+)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+    DUILIB_SDL=0
+    DUILIB_JPEG_TURBO=1
+    DUILIB_LIB_PAG=0
+)
+
+if(MSVC)
+    # UDM 3.x ships the VS 2019 (14.29) C++ runtime.  Newer MSVC toolsets
+    # otherwise use the constexpr std::mutex layout, which the older runtime
+    # cannot initialize/lock correctly.  Keep the CMake build aligned with
+    # duilib.vcxproj's Release|x64 compatibility definition.
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        $<$<CONFIG:Release>:_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR=1>
+    )
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")

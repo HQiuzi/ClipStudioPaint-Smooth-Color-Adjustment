@@ -21,6 +21,7 @@ typedef std::string _CatString;
     F(FunctionEnable,ToneCurve,bool,true) \
     F(FunctionEnable,TimeLapseExport,bool,true) \
     F(FunctionEnable,Script_ApplyEffects,bool,true) \
+    F(FunctionEnable,Script_ApplyEffectLayers,bool,true) \
     F(FunctionEnable,HideNavigatorViewIndicator,bool,false) \
     F(ReplaceColor,Tolerance,int64_t,50) \
     F(ReplaceColor,WindowRect,SDL_Rect,_defalutReplaceWindowRect)\

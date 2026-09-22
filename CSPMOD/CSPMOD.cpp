@@ -119,6 +119,7 @@ void CSPMOD::CodePatch(void* targetAddr, void* data, size_t datasize)
 	DWORD oldProtect;
 	VirtualProtect(targetAddr, datasize, PAGE_EXECUTE_READWRITE, &oldProtect);
 	memcpy(targetAddr, data, datasize);
+	FlushInstructionCache(GetCurrentProcess(), targetAddr, datasize);
 	VirtualProtect(targetAddr, datasize, oldProtect, &oldProtect);
 }
 

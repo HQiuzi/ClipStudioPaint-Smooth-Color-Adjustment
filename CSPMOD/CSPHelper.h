@@ -38,6 +38,7 @@ public:
 		std::string randstr = serial.substr(0,5)+ serial.substr(6,5);
 		//CryptoPP::
 
+		return false;
 	}
 
 

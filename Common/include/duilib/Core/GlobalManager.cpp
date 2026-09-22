@@ -651,7 +651,7 @@ FilePath GlobalManager::GetExistsResFullPath(const FilePath& windowResPath,
             }
         }
 #define GlobalManager_patch_cpp
-#include"../../CatTuber64/duilib_CodePatch/GlobalManager_patch.h"
+#include "duilib_CodePatch/GlobalManager_patch.h"
 #undef GlobalManager_patch_cpp
 
     }

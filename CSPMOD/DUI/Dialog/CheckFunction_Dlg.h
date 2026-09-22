@@ -46,6 +46,7 @@ private:
     ui::CheckBox* checkBox_plugin_motionblur;
     ui::CheckBox* checkBox_timelapseexport;
     ui::CheckBox* checkBox_applyeffects;
+    ui::CheckBox* checkBox_applyeffectlayers;
     ui::CheckBox* checkBox_hideNavigatorViewIndicator;
 
 };

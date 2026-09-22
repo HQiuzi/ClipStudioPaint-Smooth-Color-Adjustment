@@ -353,6 +353,11 @@ void AppSettings::_OnFunctionEnableScript_ApplyEffectsChange(const bool& value)
 	}
 }
 
+void AppSettings::_OnFunctionEnableScript_ApplyEffectLayersChange(const bool& value)
+{
+	Save();
+}
+
 void AppSettings::_OnFunctionEnableHideNavigatorViewIndicatorChange(const bool& value)
 {
 	if (CspData::GetHideNavigatorViewIndicatorAvaliable())

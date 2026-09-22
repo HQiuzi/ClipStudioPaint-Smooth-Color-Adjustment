@@ -118,9 +118,6 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
     </Link>
-    <PostBuildEvent>
-      <Command>copy /Y "G:\Projects\CSPMOD\CSPMOD\x64\Debug\SmoothFilter_ReplaceColor.dll" "C:\Software\CLIP STUDIO 1.5\CLIP STUDIO PAINT\PlugIn\PAINT\SmoothFilter_ReplaceColor.dll"</Command>
-    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>

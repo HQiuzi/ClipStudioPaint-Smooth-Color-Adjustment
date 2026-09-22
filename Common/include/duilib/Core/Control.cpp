@@ -4336,7 +4336,7 @@ bool Control::LoadImageInfo(Image& duiImage, bool bPaintImage) const
             imageLoadPath.m_pathType = ImageLoadPathType::kVirtualPath;
         }
     }
-#include"../../CatTuber64/duilib_CodePatch/Control_cpp_patch.h"
+#include "duilib_CodePatch/Control_cpp_patch.h"
 
 
 
