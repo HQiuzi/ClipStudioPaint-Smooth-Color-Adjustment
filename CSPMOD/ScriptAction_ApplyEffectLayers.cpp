@@ -1,9 +1,14 @@
 #include "ScriptAction_ApplyEffectLayers.h"
 
+#include "CspData.h"
 #include "LayerObject.h"
 #include "HostUndoTransaction.h"
 
 #include <SDL3/SDL.h>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
 
 #include <algorithm>
 #include <cstdint>
@@ -806,6 +811,7 @@ void QuarantineNewChildren(uintptr_t parentPtr,
 }
 
 bool HideAndLockLayers(const std::vector<uintptr_t>& layerPtrs,
+                       HostUndoTransaction& undoTransaction,
                        uintptr_t refreshLayerPtr,
                        uintptr_t stableLowerPtr = 0)
 {
@@ -815,6 +821,7 @@ bool HideAndLockLayers(const std::vector<uintptr_t>& layerPtrs,
         if (!FindLayer(layerPtr, layer))
             return false;
         layer.SetLocked(false);
+        undoTransaction.TrackVisibility(layer);
         layer.SetVisibility(false);
     }
 
@@ -829,6 +836,8 @@ bool HideAndLockLayers(const std::vector<uintptr_t>& layerPtrs,
     {
         LayerObject layer;
         if (!FindLayer(layerPtr, layer) || layer.IsVisible())
+            return false;
+        if (!undoTransaction.TrackLockChange(layer))
             return false;
         layer.SetLocked(true);
         if (!layer.IsLocked())
@@ -1142,6 +1151,16 @@ bool NormalizeResult(uintptr_t resultPtr)
         !result.HasLayerClippingMask() && result.GetOpacity() == 0x100 &&
         result.GetBlendMode() == 0;
 }
+
+void RefreshHostWindow()
+{
+    const HWND window = reinterpret_cast<HWND>(CspData::GetNativeWindowHandle());
+    if (!::IsWindow(window))
+        return;
+
+    ::RedrawWindow(window, nullptr, nullptr,
+        RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW);
+}
 }
 
 bool ScriptAction_ApplyEffectLayers::Available()
@@ -1359,6 +1378,15 @@ ScriptAction_ApplyEffectLayers::Result ScriptAction_ApplyEffectLayers::Run()
     if (!targetIsGroup && !NormalizeResult(resultPtr))
         return failOperation("result normalization");
 
+    // Keep the finished copy above the complete clipping chain.  sources is
+    // sorted from the lower adjustment layer to the upper one, so back() is
+    // the topmost selected adjustment layer.
+    if (sources.empty() ||
+        !MoveLayerImmediatelyAbove(resultPtr, sources.back().ptr))
+    {
+        return failOperation("result placement");
+    }
+
     std::vector<uintptr_t> backupPtrs;
     backupPtrs.reserve(sources.size() + 1);
     backupPtrs.push_back(clippingTargetPtr);
@@ -1372,17 +1400,40 @@ ScriptAction_ApplyEffectLayers::Result ScriptAction_ApplyEffectLayers::Run()
     RestoreGroupStates(workGroupStates);
 
     originalsChanged = true;
-    if (!HideAndLockLayers(backupPtrs, resultPtr,
-                           targetIsGroup ? clippingTargetPtr : 0))
+    if (!HideAndLockLayers(backupPtrs, undoTransaction, resultPtr))
         return failOperation("backup commit");
 
     LayerObject result;
     if (!FindLayer(resultPtr, result))
         return failOperation("final result lookup");
+    LayerPath resultPath;
+    if (!FindLayerPath(resultPtr, resultPath))
+        return failOperation("final result path");
     result.SetSelect();
 
     if (!undoTransaction.Commit())
         return failOperation("history grouping");
+
+    // Commit rebuilds the host commands, so the result object may have a new
+    // address even though its layer-tree path is unchanged.  Re-resolve it and
+    // explicitly synchronize the layer panel/canvas with the committed state.
+    LayerObject committedResult;
+    if (GetLayerAtPath(resultPath, committedResult) &&
+        committedResult.IsGroup() == targetIsGroup &&
+        !committedResult.IsAdjustLayer())
+    {
+        committedResult.SetLocked(false);
+        committedResult.SetVisibility(true);
+        if (targetIsGroup)
+            committedResult.SetGroupOpen(targetGroupWasOpen);
+        committedResult.SetSelect();
+        undoTransaction.ActivateVisibilityRecovery(committedResult);
+    }
+    else
+    {
+        SDL_Log("Apply Effects Layer: committed result could not be re-resolved");
+    }
+    RefreshHostWindow();
 
     SDL_Log("Apply Effects Layer completed: %llu sources, target mode=%s",
         static_cast<unsigned long long>(sources.size()),
