@@ -141,6 +141,41 @@ bool GetDirectChildPointers(LayerObject parent, std::set<uintptr_t>& children)
     return static_cast<int>(children.size()) == childCount;
 }
 
+// After the host folds the temporary history stack, it may replace the result
+// layer object and move it to a different tree path.  The original siblings
+// survive the operation, so the one new direct child is a stable way to find
+// the committed result without relying on a stale index path.
+bool FindCommittedResult(uintptr_t parentPtr,
+                         const std::set<uintptr_t>& originalChildren,
+                         bool expectGroup,
+                         LayerObject& result)
+{
+    LayerObject parent;
+    if (!FindLayer(parentPtr, parent))
+        return false;
+
+    LayerObject candidate;
+    int candidateCount = 0;
+    for (int index = 0; index < parent.GetChildLayerCount(); ++index)
+    {
+        LayerObject child = parent.GetChildAt_TopToBottom(index);
+        if (!child.CheckPtr())
+            return false;
+        if (originalChildren.find(child.ptr) != originalChildren.end() ||
+            child.IsGroup() != expectGroup)
+        {
+            continue;
+        }
+        candidate = child;
+        ++candidateCount;
+    }
+
+    if (candidateCount != 1)
+        return false;
+    result = candidate;
+    return true;
+}
+
 void CollectSelectedLayersRecursive(LayerObject parent, LayerPath& path,
                                     std::vector<SourceLayer>& selected)
 {
@@ -810,10 +845,7 @@ void QuarantineNewChildren(uintptr_t parentPtr,
     }
 }
 
-bool HideAndLockLayers(const std::vector<uintptr_t>& layerPtrs,
-                       HostUndoTransaction& undoTransaction,
-                       uintptr_t refreshLayerPtr,
-                       uintptr_t stableLowerPtr = 0)
+bool HideAndLockLayers(const std::vector<uintptr_t>& layerPtrs)
 {
     for (uintptr_t layerPtr : layerPtrs)
     {
@@ -821,23 +853,13 @@ bool HideAndLockLayers(const std::vector<uintptr_t>& layerPtrs,
         if (!FindLayer(layerPtr, layer))
             return false;
         layer.SetLocked(false);
-        undoTransaction.TrackVisibility(layer);
         layer.SetVisibility(false);
     }
-
-    // Commit direct state writes through a reversible, path-checked host move.
-    const bool refreshed = stableLowerPtr != 0
-        ? RefreshViaStablePair(refreshLayerPtr, stableLowerPtr)
-        : RefreshLayerState(refreshLayerPtr);
-    if (!refreshed)
-        return false;
 
     for (uintptr_t layerPtr : layerPtrs)
     {
         LayerObject layer;
         if (!FindLayer(layerPtr, layer) || layer.IsVisible())
-            return false;
-        if (!undoTransaction.TrackLockChange(layer))
             return false;
         layer.SetLocked(true);
         if (!layer.IsLocked())
@@ -1399,35 +1421,48 @@ ScriptAction_ApplyEffectLayers::Result ScriptAction_ApplyEffectLayers::Run()
     RestoreGroupStates(groupStates);
     RestoreGroupStates(workGroupStates);
 
-    originalsChanged = true;
-    if (!HideAndLockLayers(backupPtrs, undoTransaction, resultPtr))
-        return failOperation("backup commit");
-
     LayerObject result;
     if (!FindLayer(resultPtr, result))
         return failOperation("final result lookup");
-    LayerPath resultPath;
-    if (!FindLayerPath(resultPtr, resultPath))
-        return failOperation("final result path");
     result.SetSelect();
 
     if (!undoTransaction.Commit())
         return failOperation("history grouping");
 
-    // Commit rebuilds the host commands, so the result object may have a new
-    // address even though its layer-tree path is unchanged.  Re-resolve it and
-    // explicitly synchronize the layer panel/canvas with the committed state.
+    // Commit rebuilds the host commands and may replace the result object, so
+    // identify it by the new sibling rather than its pre-commit tree path.
     LayerObject committedResult;
-    if (GetLayerAtPath(resultPath, committedResult) &&
-        committedResult.IsGroup() == targetIsGroup &&
-        !committedResult.IsAdjustLayer())
+    if (FindCommittedResult(parentPtr, originalChildren, targetIsGroup,
+                            committedResult))
     {
         committedResult.SetLocked(false);
         committedResult.SetVisibility(true);
         if (targetIsGroup)
             committedResult.SetGroupOpen(targetGroupWasOpen);
         committedResult.SetSelect();
-        undoTransaction.ActivateVisibilityRecovery(committedResult);
+
+        // Do this after the structural composite is committed.  The host's
+        // structural command then retains the pre-action presentation state,
+        // while the narrowly scoped recovery observer restores it only when
+        // this result itself is undone.
+        if (!HideAndLockLayers(backupPtrs))
+        {
+            SDL_Log("Apply Effects Layer: could not hide and lock recovery copies");
+        }
+        else
+        {
+            std::vector<HostUndoTransaction::LayerPresentationState> presentationStates;
+            presentationStates.reserve(originalStates.size());
+            for (const LayerState& state : originalStates)
+                presentationStates.push_back({ state.ptr, state.visible, state.locked });
+
+            LayerObject committedParent;
+            if (FindLayer(parentPtr, committedParent))
+            {
+                HostUndoTransaction::TrackPresentationRecovery(
+                    presentationStates, committedResult, committedParent);
+            }
+        }
     }
     else
     {

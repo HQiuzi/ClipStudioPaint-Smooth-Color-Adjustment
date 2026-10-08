@@ -2,6 +2,7 @@
 
 #include "AddressTable.h"
 #include "CSPMOD.h"
+#include "CspData.h"
 #include "LayerObject.h"
 
 #include <SDL3/SDL.h>
@@ -57,7 +58,6 @@ struct HostLayout
     std::uintptr_t multiCount;
     std::uintptr_t setName;
     std::uintptr_t doCommand;
-    std::uintptr_t makeLockCommand;
     std::uintptr_t stringCtor;
     std::uintptr_t stringDtor;
     std::uintptr_t releaseShared;
@@ -78,7 +78,6 @@ const HostLayout kHostLayouts[] = {
         0x135D900,
         0x1365990,
         0x1364680,
-        0x21498C0,
         0x247D4A0,
         0x247D530,
         0x0166D30,
@@ -114,7 +113,6 @@ using MultiAddFn = void(__fastcall*)(void*, HostSharedPtr*);
 using MultiCountFn = std::int64_t(__fastcall*)(const void*);
 using SetNameFn = HostString* (__fastcall*)(void*, const HostString*);
 using DoCommandFn = void(__fastcall*)(void*, HostSharedPtr*);
-using MakePropertyCommandFn = HostSharedPtr* (__fastcall*)(HostSharedPtr*, HostSharedPtr*);
 using HostStringCtorFn = HostString* (__fastcall*)(HostString*, const wchar_t*, std::int32_t);
 using HostStringDtorFn = void(__fastcall*)(HostString*);
 using ReleaseSharedFn = void(__fastcall*)(HostSharedPtr*);
@@ -133,7 +131,6 @@ struct HostApi
     MultiCountFn multiCount = nullptr;
     SetNameFn setName = nullptr;
     DoCommandFn doCommand = nullptr;
-    MakePropertyCommandFn makeLockCommand = nullptr;
     HostStringCtorFn stringCtor = nullptr;
     HostStringDtorFn stringDtor = nullptr;
     ReleaseSharedFn releaseShared = nullptr;
@@ -202,7 +199,6 @@ bool ResolveHostApi()
         !HasBytes(layout->multiCount, { 0x48, 0x8B, 0x41, 0x50, 0x48, 0x2B, 0x41, 0x48 }) ||
         !HasBytes(layout->setName, { 0x48, 0x83, 0xC1, 0x10, 0xE9 }) ||
         !HasBytes(layout->doCommand, { 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x54, 0x24, 0x10, 0x57 }) ||
-        !HasBytes(layout->makeLockCommand, { 0x4C, 0x8B, 0xDC, 0x49, 0x89, 0x5B, 0x18 }) ||
         !HasBytes(layout->stringCtor, { 0x48, 0x89, 0x5C, 0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18 }) ||
         !HasBytes(layout->stringDtor, { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20 }) ||
         !HasBytes(layout->releaseShared, { 0x40, 0x53, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0x59, 0x08 }))
@@ -223,7 +219,6 @@ bool ResolveHostApi()
     g_api.multiCount = AtRva<MultiCountFn>(layout->multiCount);
     g_api.setName = AtRva<SetNameFn>(layout->setName);
     g_api.doCommand = AtRva<DoCommandFn>(layout->doCommand);
-    g_api.makeLockCommand = AtRva<MakePropertyCommandFn>(layout->makeLockCommand);
     g_api.stringCtor = AtRva<HostStringCtorFn>(layout->stringCtor);
     g_api.stringDtor = AtRva<HostStringDtorFn>(layout->stringDtor);
     g_api.releaseShared = AtRva<ReleaseSharedFn>(layout->releaseShared);
@@ -277,6 +272,209 @@ bool IsKnownUndoModel(void* candidate)
     }
     return false;
 }
+
+bool FindLayerRecursive(LayerObject parent, uintptr_t target, LayerObject& result)
+{
+    const int childCount = parent.GetChildLayerCount();
+    for (int index = 0; index < childCount; ++index)
+    {
+        LayerObject child = parent.GetChildAt_TopToBottom(index);
+        if (!child.CheckPtr())
+            continue;
+        if (child.ptr == target)
+        {
+            result = child;
+            return true;
+        }
+        if (child.IsGroup() && FindLayerRecursive(child, target, result))
+            return true;
+    }
+    return false;
+}
+
+bool FindLayer(uintptr_t target, LayerObject& result)
+{
+    LayerObject root = LayerObject::GetCurrentRoot();
+    return target != 0 && root.CheckPtr() && FindLayerRecursive(root, target, result);
+}
+
+struct PresentationRecoveryPlan
+{
+    std::vector<HostUndoTransaction::LayerPresentationState> originalStates;
+    // Every direct child other than the generated result.  These identities
+    // let Redo recognize this exact composite without reacting to brush or
+    // ordinary layer commands.
+    std::vector<uintptr_t> originalDirectChildren;
+    uintptr_t resultPtr = 0;
+    uintptr_t parentPtr = 0;
+    bool resultIsGroup = false;
+    bool resultIsAdjust = false;
+    bool resultWasUndone = false;
+    bool resultPresentBeforeUndo = false;
+    bool active = false;
+};
+
+std::vector<PresentationRecoveryPlan> g_presentationRecoveryPlans;
+
+using HostUndoFn = void(__fastcall*)(void*);
+HostUndoFn g_originalUndo = nullptr;
+HostUndoFn g_originalRedo = nullptr;
+bool g_presentationHooksUnavailable = false;
+
+bool RestoreOriginalPresentation(const PresentationRecoveryPlan& plan)
+{
+    std::size_t restored = 0;
+    for (const HostUndoTransaction::LayerPresentationState& state : plan.originalStates)
+    {
+        LayerObject layer;
+        if (!FindLayer(state.layerPtr, layer))
+            continue;
+        // Lock must be cleared before changing a locked layer's state.
+        layer.SetLocked(false);
+        layer.SetVisibility(state.visible);
+        layer.SetLocked(state.locked);
+        ++restored;
+    }
+    Diag("Presentation recovery restored %zu/%zu original layer(s)", restored,
+        plan.originalStates.size());
+    return restored != 0;
+}
+
+bool ApplyCompositePresentation(const PresentationRecoveryPlan& plan)
+{
+    std::size_t applied = 0;
+    for (const HostUndoTransaction::LayerPresentationState& state : plan.originalStates)
+    {
+        LayerObject layer;
+        if (!FindLayer(state.layerPtr, layer))
+            continue;
+        layer.SetLocked(false);
+        layer.SetVisibility(false);
+        layer.SetLocked(true);
+        ++applied;
+    }
+    Diag("Presentation recovery reapplied %zu/%zu original layer(s)", applied,
+        plan.originalStates.size());
+    return applied != 0;
+}
+
+void QueueHostRedraw()
+{
+    const HWND window = reinterpret_cast<HWND>(CspData::GetNativeWindowHandle());
+    if (::IsWindow(window))
+        ::InvalidateRect(window, nullptr, FALSE);
+}
+
+bool IsOriginalDirectChild(const PresentationRecoveryPlan& plan, uintptr_t ptr)
+{
+    return std::find(plan.originalDirectChildren.begin(),
+        plan.originalDirectChildren.end(), ptr) != plan.originalDirectChildren.end();
+}
+
+void __fastcall HookUndo(void* undoModel)
+{
+    // No allocations or host commands here: this is an observer around the
+    // host's own undo path, and writes only raw presentation flags afterward.
+    for (PresentationRecoveryPlan& plan : g_presentationRecoveryPlans)
+    {
+        LayerObject result;
+        plan.resultPresentBeforeUndo = plan.active &&
+            FindLayer(plan.resultPtr, result);
+    }
+
+    g_originalUndo(undoModel);
+
+    for (PresentationRecoveryPlan& plan : g_presentationRecoveryPlans)
+    {
+        if (!plan.resultPresentBeforeUndo || !plan.active)
+            continue;
+
+        LayerObject result;
+        if (FindLayer(plan.resultPtr, result))
+            continue;
+
+        // A brush stroke, a new layer, or a user eye-toggle leaves this
+        // composite result in the tree.  Only its removal is the action we
+        // are tracking, so those unrelated Undos cannot overwrite the user's
+        // presentation choices.
+        if (RestoreOriginalPresentation(plan))
+            QueueHostRedraw();
+        plan.resultWasUndone = true;
+    }
+}
+
+void __fastcall HookRedo(void* undoModel)
+{
+    g_originalRedo(undoModel);
+
+    // Redo recreates the result with a new host pointer.  Look for the one new
+    // direct child matching this composite's result shape.  Plans are ordered
+    // oldest-first, which also matches normal redo order for nested applies.
+    for (PresentationRecoveryPlan& plan : g_presentationRecoveryPlans)
+    {
+        if (!plan.active || !plan.resultWasUndone)
+            continue;
+
+        LayerObject parent;
+        if (!FindLayer(plan.parentPtr, parent))
+            continue;
+
+        LayerObject candidate;
+        int candidateCount = 0;
+        const int childCount = parent.GetChildLayerCount();
+        for (int index = 0; index < childCount; ++index)
+        {
+            LayerObject child = parent.GetChildAt_TopToBottom(index);
+            if (!child.CheckPtr() || IsOriginalDirectChild(plan, child.ptr) ||
+                child.IsGroup() != plan.resultIsGroup ||
+                child.IsAdjustLayer() != plan.resultIsAdjust)
+            {
+                continue;
+            }
+            candidate = child;
+            ++candidateCount;
+        }
+
+        if (candidateCount != 1)
+            continue;
+
+        plan.resultPtr = candidate.ptr;
+        if (ApplyCompositePresentation(plan))
+            QueueHostRedraw();
+        plan.resultWasUndone = false;
+        break;
+    }
+}
+
+bool EnsurePresentationRecoveryHooks()
+{
+    if (g_originalUndo != nullptr && g_originalRedo != nullptr)
+        return true;
+    if (g_presentationHooksUnavailable)
+        return false;
+    if (!ResolveHostApi() || g_api.undo == nullptr || g_api.redo == nullptr)
+        return false;
+
+    if (!CSPMOD::Hook(reinterpret_cast<void*>(g_api.undo),
+                       reinterpret_cast<void*>(HookUndo),
+                       reinterpret_cast<void**>(&g_originalUndo)))
+    {
+        g_presentationHooksUnavailable = true;
+        return false;
+    }
+    if (!CSPMOD::Hook(reinterpret_cast<void*>(g_api.redo),
+                       reinterpret_cast<void*>(HookRedo),
+                       reinterpret_cast<void**>(&g_originalRedo)))
+    {
+        // The undo detour is already installed at this point.  Keep its valid
+        // trampoline so it can safely pass through with no plans armed, and
+        // prevent any second attempt to patch either host entry point.
+        g_presentationHooksUnavailable = true;
+        return false;
+    }
+    Diag("Presentation recovery hooks installed");
+    return true;
+}
 }
 
 bool HostUndoTransaction::Available()
@@ -323,235 +521,39 @@ HostUndoTransaction::~HostUndoTransaction()
     Rollback();
 }
 
-namespace
+void HostUndoTransaction::TrackPresentationRecovery(
+    const std::vector<LayerPresentationState>& originalStates,
+    LayerObject resultLayer,
+    LayerObject resultParent)
 {
-bool FindLayerRecursive(LayerObject parent, uintptr_t target, LayerObject& result)
-{
-    for (int index = 0; index < parent.GetChildLayerCount(); ++index)
+    if (originalStates.empty() || !resultLayer.CheckPtr() ||
+        !resultParent.CheckPtr() || !EnsurePresentationRecoveryHooks())
     {
-        LayerObject child = parent.GetChildAt_TopToBottom(index);
-        if (!child.CheckPtr())
-            continue;
-        if (child.ptr == target)
-        {
-            result = child;
-            return true;
-        }
-        if (child.IsGroup() && FindLayerRecursive(child, target, result))
-            return true;
-    }
-    return false;
-}
-
-bool FindLayer(uintptr_t target, LayerObject& result)
-{
-    LayerObject root = LayerObject::GetCurrentRoot();
-    return target != 0 && root.CheckPtr() && FindLayerRecursive(root, target, result);
-}
-
-bool FindParentRecursive(LayerObject parent, uintptr_t target, LayerObject& result)
-{
-    for (int index = 0; index < parent.GetChildLayerCount(); ++index)
-    {
-        LayerObject child = parent.GetChildAt_TopToBottom(index);
-        if (!child.CheckPtr())
-            continue;
-        if (child.ptr == target)
-        {
-            result = parent;
-            return true;
-        }
-        if (child.IsGroup() && FindParentRecursive(child, target, result))
-            return true;
-    }
-    return false;
-}
-
-bool FindParent(uintptr_t target, LayerObject& result)
-{
-    LayerObject root = LayerObject::GetCurrentRoot();
-    return target != 0 && root.CheckPtr() && FindParentRecursive(root, target, result);
-}
-
-void GetDirectChildPointers(LayerObject parent, std::vector<uintptr_t>& result)
-{
-    result.clear();
-    for (int index = 0; index < parent.GetChildLayerCount(); ++index)
-    {
-        LayerObject child = parent.GetChildAt_TopToBottom(index);
-        if (child.CheckPtr())
-            result.push_back(child.ptr);
-    }
-}
-
-struct VisibilityRecoveryPlan
-{
-    std::vector<HostUndoTransaction::VisibilityBackup> backups;
-    uintptr_t resultPtr = 0;
-    uintptr_t resultParentPtr = 0;
-    bool resultIsGroup = false;
-    bool resultIsAdjust = false;
-    bool resultWasUndone = false;
-    bool active = false;
-};
-
-VisibilityRecoveryPlan g_visibilityRecovery;
-
-using HostUndoFn = void(__fastcall*)(void*);
-HostUndoFn g_origUndo = nullptr;
-HostUndoFn g_origRedo = nullptr;
-
-void RestoreOriginalVisibility()
-{
-    for (const HostUndoTransaction::VisibilityBackup& backup : g_visibilityRecovery.backups)
-    {
-        LayerObject layer;
-        if (FindLayer(backup.layerPtr, layer))
-            layer.SetVisibility(backup.visible);
-    }
-}
-
-void HideOriginalsForAppliedAction()
-{
-    for (const HostUndoTransaction::VisibilityBackup& backup : g_visibilityRecovery.backups)
-    {
-        LayerObject layer;
-        if (FindLayer(backup.layerPtr, layer))
-            layer.SetVisibility(false);
-    }
-}
-
-void __fastcall Hook_Undo(void* undoModel)
-{
-    LayerObject resultBeforeUndo;
-    const bool resultExisted = g_visibilityRecovery.active &&
-        FindLayer(g_visibilityRecovery.resultPtr, resultBeforeUndo);
-    g_origUndo(undoModel);
-
-    if (!resultExisted || !g_visibilityRecovery.active)
         return;
-
-    LayerObject result;
-    if (!FindLayer(g_visibilityRecovery.resultPtr, result))
-    {
-        // Only the composite action removes its result layer. Undoing a later
-        // brush stroke or a manual eye-toggle leaves it in place, so neither
-        // operation is allowed to overwrite the user's visibility choice.
-        RestoreOriginalVisibility();
-        g_visibilityRecovery.resultWasUndone = true;
-        Diag("Visibility recovery restored %zu original layer(s)",
-            g_visibilityRecovery.backups.size());
-    }
-}
-
-void __fastcall Hook_Redo(void* undoModel)
-{
-    std::vector<uintptr_t> beforeChildren;
-    LayerObject parent;
-    const bool watchRedo = g_visibilityRecovery.active &&
-        g_visibilityRecovery.resultWasUndone &&
-        FindLayer(g_visibilityRecovery.resultParentPtr, parent);
-    if (watchRedo)
-        GetDirectChildPointers(parent, beforeChildren);
-
-    g_origRedo(undoModel);
-
-    if (!watchRedo)
-        return;
-
-    if (!FindLayer(g_visibilityRecovery.resultParentPtr, parent))
-        return;
-    std::vector<uintptr_t> afterChildren;
-    GetDirectChildPointers(parent, afterChildren);
-    for (uintptr_t ptr : afterChildren)
-    {
-        if (std::find(beforeChildren.begin(), beforeChildren.end(), ptr) != beforeChildren.end())
-            continue;
-        LayerObject candidate;
-        if (!FindLayer(ptr, candidate) ||
-            candidate.IsGroup() != g_visibilityRecovery.resultIsGroup ||
-            candidate.IsAdjustLayer() != g_visibilityRecovery.resultIsAdjust)
-        {
-            continue;
-        }
-
-        g_visibilityRecovery.resultPtr = ptr;
-        HideOriginalsForAppliedAction();
-        g_visibilityRecovery.resultWasUndone = false;
-        Diag("Visibility recovery reapplied to %zu original layer(s)",
-            g_visibilityRecovery.backups.size());
-        break;
-    }
-}
-
-void EnsureUndoHookInstalled()
-{
-    if (g_origUndo != nullptr && g_origRedo != nullptr)
-        return;
-    if (!ResolveHostApi() || g_api.undo == nullptr || g_api.redo == nullptr)
-        return;
-
-    CSPMOD::Hook(reinterpret_cast<void*>(g_api.undo),
-                 reinterpret_cast<void*>(Hook_Undo),
-                 reinterpret_cast<void**>(&g_origUndo));
-    CSPMOD::Hook(reinterpret_cast<void*>(g_api.redo),
-                 reinterpret_cast<void*>(Hook_Redo),
-                 reinterpret_cast<void**>(&g_origRedo));
-}
-}
-
-void HostUndoTransaction::TrackVisibility(LayerObject layer)
-{
-    if (!active_ || !layer.CheckPtr())
-        return;
-    visibilityBackups_.push_back({ layer.ptr, layer.IsVisible() });
-}
-
-void HostUndoTransaction::ActivateVisibilityRecovery(LayerObject committedResult)
-{
-    if (visibilityBackups_.empty() || !committedResult.CheckPtr())
-        return;
-
-    LayerObject parent;
-    if (!FindParent(committedResult.ptr, parent))
-        return;
-
-    EnsureUndoHookInstalled();
-    if (g_origUndo == nullptr || g_origRedo == nullptr)
-        return;
-
-    g_visibilityRecovery.backups = visibilityBackups_;
-    g_visibilityRecovery.resultPtr = committedResult.ptr;
-    g_visibilityRecovery.resultParentPtr = parent.ptr;
-    g_visibilityRecovery.resultIsGroup = committedResult.IsGroup();
-    g_visibilityRecovery.resultIsAdjust = committedResult.IsAdjustLayer();
-    g_visibilityRecovery.resultWasUndone = false;
-    g_visibilityRecovery.active = true;
-    Diag("Visibility recovery armed: originals=%zu", visibilityBackups_.size());
-}
-
-bool HostUndoTransaction::TrackLockChange(LayerObject layer)
-{
-    if (!active_)
-        return true;
-    if (!layer.CheckPtr() || layer.ptr_ref == 0)
-        return false;
-
-    HostSharedPtr target{
-        reinterpret_cast<void*>(layer.ptr),
-        reinterpret_cast<void*>(layer.ptr_ref)
-    };
-    HostSharedPtr command;
-    g_api.makeLockCommand(&command, &target);
-    if (command.object == nullptr || command.control == nullptr)
-    {
-        Release(command);
-        return false;
     }
 
-    propertyCommands_.push_back({ command.object, command.control });
-    command = {};
-    return true;
+    PresentationRecoveryPlan plan;
+    plan.originalStates = originalStates;
+    plan.resultPtr = resultLayer.ptr;
+    plan.parentPtr = resultParent.ptr;
+    plan.resultIsGroup = resultLayer.IsGroup();
+    plan.resultIsAdjust = resultLayer.IsAdjustLayer();
+    plan.active = true;
+
+    const int childCount = resultParent.GetChildLayerCount();
+    plan.originalDirectChildren.reserve(childCount > 0 ? childCount - 1 : 0);
+    for (int index = 0; index < childCount; ++index)
+    {
+        LayerObject child = resultParent.GetChildAt_TopToBottom(index);
+        if (child.CheckPtr() && child.ptr != resultLayer.ptr)
+            plan.originalDirectChildren.push_back(child.ptr);
+    }
+
+    if (plan.originalDirectChildren.empty())
+        return;
+
+    g_presentationRecoveryPlans.push_back(std::move(plan));
+    Diag("Presentation recovery armed: originals=%zu", originalStates.size());
 }
 
 bool HostUndoTransaction::Rollback()
@@ -576,14 +578,6 @@ bool HostUndoTransaction::Rollback()
     Release(stack);
     temporaryStackObject_ = nullptr;
     temporaryStackControl_ = nullptr;
-    for (SharedPtr& tracked : propertyCommands_)
-    {
-        HostSharedPtr command{ tracked.object, tracked.control };
-        Release(command);
-        tracked = {};
-    }
-    propertyCommands_.clear();
-    visibilityBackups_.clear();
     active_ = false;
     return complete;
 }
@@ -660,28 +654,11 @@ bool HostUndoTransaction::Commit()
         Release(multi);
         return fail();
     }
-    const std::size_t structuralCommandCount = commandCount;
-
-    // Lock is a direct layer-memory write in the original plugin, so append
-    // its native property command explicitly. Visibility is restored only
-    // when this composite action itself is undone (see ActivateVisibilityRecovery).
-    for (SharedPtr& tracked : propertyCommands_)
-    {
-        HostSharedPtr command{ tracked.object, tracked.control };
-        HostSharedPtr argument = CopyOf(command);
-        g_api.multiAdd(multi.object, &argument);
-        argument = {};
-        Release(command);
-        tracked = {};
-        ++commandCount;
-    }
-    propertyCommands_.clear();
-
-    if (structuralCommandCount != undoCount ||
+    if (commandCount != undoCount ||
         g_api.multiCount(multi.object) != static_cast<std::int64_t>(commandCount))
     {
-        Diag("Commit count mismatch: undo=%zu structural=%zu total=%zu multi=%lld",
-            undoCount, structuralCommandCount, commandCount,
+        Diag("Commit count mismatch: undo=%zu redo=%zu multi=%lld",
+            undoCount, commandCount,
             static_cast<long long>(g_api.multiCount(multi.object)));
         Release(multi);
         return fail();

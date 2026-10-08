@@ -9,9 +9,10 @@
 // named entry, so the whole action is reverted by one undo.
 //
 // The layer structure changes (copy/move/merge) are host commands and become
-// one composite entry. Lock is a plain layer flag, so its native property
-// command is appended explicitly. Visibility must be restored separately: the
-// host does not turn direct visibility writes into a reversible command.
+// one composite entry. Layer visibility and locking are direct host state
+// writes in this host build.  Their pre-action values are therefore recovered
+// only when this composite's result layer is actually removed by Undo; no
+// synthetic host property command is constructed.
 //
 // Every host entry point is resolved by version-specific address and checked
 // against its known opening instructions.  If any check fails the caller keeps
@@ -19,10 +20,11 @@
 class HostUndoTransaction
 {
 public:
-    struct VisibilityBackup
+    struct LayerPresentationState
     {
         uintptr_t layerPtr = 0;
         bool visible = true;
+        bool locked = false;
     };
 
     static bool Available();
@@ -37,18 +39,13 @@ public:
     // behaviour.
     bool IsActive() const { return active_; }
 
-    // Capture the host property command for a lock change, so the host undoes
-    // the lock together with the structural steps.
-    bool TrackLockChange(LayerObject layer);
-
-    // Remember a direct visibility change. ActivateVisibilityRecovery must be
-    // called after Commit with the re-resolved result layer.
-    void TrackVisibility(LayerObject layer);
-
-    // Starts selective visibility recovery for this committed action. Unlike
-    // a blanket post-undo fixup, it only changes flags when this action's
-    // result layer itself is removed or recreated.
-    void ActivateVisibilityRecovery(LayerObject committedResult);
+    // Arm direct presentation-state recovery after Commit.  The installed
+    // observer only restores these values when Undo removes resultLayer; this
+    // deliberately excludes ordinary undo operations such as brush strokes.
+    static void TrackPresentationRecovery(
+        const std::vector<LayerPresentationState>& originalStates,
+        LayerObject resultLayer,
+        LayerObject resultParent);
 
     // Fold everything recorded since construction into one named entry.
     bool Commit();
@@ -57,17 +54,9 @@ public:
     bool Rollback();
 
 private:
-    struct SharedPtr
-    {
-        void* object = nullptr;
-        void* control = nullptr;
-    };
-
     void* undoModel_ = nullptr;
     void* temporaryStackObject_ = nullptr;
     void* temporaryStackControl_ = nullptr;
-    std::vector<SharedPtr> propertyCommands_;
-    std::vector<VisibilityBackup> visibilityBackups_;
     std::wstring historyName_;
     bool active_ = false;
 };
