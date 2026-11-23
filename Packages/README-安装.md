@@ -2,6 +2,8 @@
 
 构建来源：`origin/master` 的 `c00f04ce5f75452b68a8add7e60005b1bed92775`（应用后期层并合并历史记录稳定版）。
 
+修订 r1：已修复安装包中嵌入式界面资源的目录层级；优动漫 PAINT 3.0.7 已验证“帮助 → 遇到问题”可以正常打开插件菜单。
+
 ## 安装（CLIP STUDIO PAINT / 优动漫 PAINT）
 
 1. 完全退出绘图软件；可在任务管理器确认没有 `CLIPStudioPaint.exe`、`UDMPaintPRO.exe` 或 `UDMPaintEX.exe` 残留进程。
