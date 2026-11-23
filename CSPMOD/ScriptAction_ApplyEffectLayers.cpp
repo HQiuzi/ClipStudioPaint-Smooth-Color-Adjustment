@@ -414,7 +414,13 @@ void CloseAllGroupsRecursive(LayerObject parent)
             continue;
 
         CloseAllGroupsRecursive(child);
-        child.SetGroupOpen(false);
+        // The host emits UI and history-adjacent notifications even when a
+        // group is already folded.  The operation still requires every group
+        // to be closed before a clipping copy is moved, but skipping a no-op
+        // state write avoids repeatedly refreshing a large, already-folded
+        // tree for each target leaf.
+        if (child.IsGroupOpen())
+            child.SetGroupOpen(false);
     }
 }
 
